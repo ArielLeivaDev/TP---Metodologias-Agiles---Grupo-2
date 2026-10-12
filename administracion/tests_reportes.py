@@ -585,3 +585,26 @@ class ReportesStockViewTests(BaseReportes):
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta.context["stock"]["cantidad_productos"], 0)
         self.assertEqual(list(respuesta.context["por_categoria"]), [])
+
+    def test_badge_de_stock_bajo_es_rojo_no_verde(self):
+        """El badge de la tabla de stock bajo es `status-bajo` (rojo):
+        un producto con pocas unidades es una alerta, no un "todo OK"."""
+        self.client.login(username="admin_test", password="claveSegura123")
+        respuesta = self.client.get(reverse("administracion:reportes_stock"))
+
+        self.assertContains(respuesta, "status-bajo")
+        # El producto con stock 2 ("Agua 500ml") sale con ese badge...
+        agua_fila = next(
+            (p for p in respuesta.context["stock"]["stock_bajo"] if p.stock == 2),
+            None,
+        )
+        self.assertIsNotNone(agua_fila)
+        # ...y nunca con status-active (verde): acá hay 2 productos con
+        # stock entre 1 y 5 (Agua con 2 y Chicle con 4).
+        self.assertContains(respuesta, 'status-badge status-bajo', count=2)
+
+    def test_ancla_stock_bajo_existe_para_el_link_del_dashboard(self):
+        """El KPI del dashboard linkea a /reportes/stock/#stock-bajo."""
+        self.client.login(username="admin_test", password="claveSegura123")
+        respuesta = self.client.get(reverse("administracion:reportes_stock"))
+        self.assertContains(respuesta, 'id="stock-bajo"')

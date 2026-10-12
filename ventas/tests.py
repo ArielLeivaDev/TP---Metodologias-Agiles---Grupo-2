@@ -308,6 +308,89 @@ class BusquedaStockTests(BaseCatalogo):
         self.assertContains(respuesta, "badge-stock-bajo")
 
 
+class OrdenamientoTests(BaseCatalogo):
+    """Ordenamiento por columna asc/desc desde el encabezado de la tabla."""
+
+    def setUp(self):
+        super().setUp()
+        # Tres productos con valores bien distintos para poder comparar.
+        self.alfajor = Producto.objects.create(
+            nombre="Alfajor Triple",
+            precio=Decimal("900.00"),
+            costo=Decimal("500.00"),
+            stock=3,
+            stock_minimo=5,
+            categoria=self.categoria,
+        )
+        self.papas = Producto.objects.create(
+            nombre="Papas Fritas",
+            precio=Decimal("2500.00"),
+            costo=Decimal("1600.00"),
+            stock=25,
+            stock_minimo=5,
+            categoria=self.categoria,
+        )
+        self.client.login(username="admin_cat", password="claveSegura123")
+
+    def _nombres(self, **params):
+        respuesta = self.client.get(reverse("ventas:lista_productos"), params)
+        return [p.nombre for p in respuesta.context["productos"]]
+
+    def test_por_defecto_ordena_por_nombre_ascendente(self):
+        self.assertEqual(
+            self._nombres(),
+            ["Alfajor Triple", "Coca 500ml", "Papas Fritas"],
+        )
+
+    def test_stock_ascendente(self):
+        self.assertEqual(
+            self._nombres(orden="stock", direccion="asc"),
+            ["Alfajor Triple", "Coca 500ml", "Papas Fritas"],
+        )
+
+    def test_stock_descendente(self):
+        self.assertEqual(
+            self._nombres(orden="stock", direccion="desc"),
+            ["Papas Fritas", "Coca 500ml", "Alfajor Triple"],
+        )
+
+    def test_precio_descendente(self):
+        self.assertEqual(
+            self._nombres(orden="precio", direccion="desc"),
+            ["Papas Fritas", "Coca 500ml", "Alfajor Triple"],
+        )
+
+    def test_costo_ascendente(self):
+        self.assertEqual(
+            self._nombres(orden="costo", direccion="asc"),
+            ["Alfajor Triple", "Coca 500ml", "Papas Fritas"],
+        )
+
+    def test_columna_desconocida_cae_en_el_default(self):
+        self.assertEqual(
+            self._nombres(orden="activo", direccion="asc"),
+            ["Alfajor Triple", "Coca 500ml", "Papas Fritas"],
+        )
+
+    def test_direccion_invalida_se_toma_como_asc(self):
+        self.assertEqual(
+            self._nombres(orden="stock", direccion="cualquiera"),
+            ["Alfajor Triple", "Coca 500ml", "Papas Fritas"],
+        )
+
+    def test_el_orden_convive_con_la_busqueda(self):
+        nombres = self._nombres(buscar="Papas", orden="stock", direccion="desc")
+        self.assertEqual(nombres, ["Papas Fritas"])
+
+    def test_el_encabezado_marca_la_columna_activa(self):
+        respuesta = self.client.get(
+            reverse("ventas:lista_productos"), {"orden": "stock", "direccion": "desc"}
+        )
+        self.assertContains(respuesta, "th-sort-activo")
+        # El icono de la columna activa en desc apunta para abajo.
+        self.assertContains(respuesta, "bi-arrow-down")
+
+
 class BaseCobro(TestCase):
     """Usuarios y catálogo base para el cobro (Sprint 3 - HU-07/08/09)."""
 

@@ -2,10 +2,10 @@
 
 Trabajo práctico de Metodologías Ágiles. Sistema web de gestión para un kiosco de barrio.
 
-**Estado al 05-10-2026:** Sprint 1 completo · Sprint 2 completo (catálogo de
+**Estado al 12-10-2026:** Sprint 1 completo · Sprint 2 completo (catálogo de
 productos + gestión de usuarios) · Sprint 3 completo (caja y cobro) ·
 **Sprint 4 parcial** (reportes de ventas y stock entregados adelantado;
-faltan cierre de turno y clientes) · estilo neón cian único · 148 tests en
+faltan cierre de turno y clientes) · estilo neón cian único · 170 tests en
 verde.
 
 ---
@@ -319,7 +319,11 @@ python manage.py migrate
 # 8. Crear los grupos y usuarios de prueba (una sola vez)
 python manage.py setup_inicial
 
-# 9. Levantar el servidor de desarrollo
+# 9. (Opcional) Cargar datos de demo: 50+ productos y ventas desde el 20/09/2026
+#    --limpiar borra el historial de ventas desde esa fecha y lo regenera
+python manage.py cargar_demo --limpiar
+
+# 10. Levantar el servidor de desarrollo
 python manage.py runserver 8001
 ```
 
@@ -327,7 +331,7 @@ Abrí `http://127.0.0.1:8001/` en el navegador.
 
 > **Nota:** los pasos 2, 4, 5, 6, 7 y 8 solo se hacen la **primera vez**.
 > Después de eso, solo necesitás activar el entorno (paso 3) y levantar
-> el servidor (paso 9).
+> el servidor (paso 10).
 
 ### Archivo .env
 
@@ -360,28 +364,37 @@ Con el entorno virtual activado:
 python manage.py test
 ```
 
-**148 tests** actualmente:
+**170 tests** actualmente:
 
 - **`usuarios/tests.py` (9)**: login correcto e incorrecto, acceso anónimo
   bloqueado, cajero bloqueado en administración, administrador con acceso
   total, y la redirección post-login según rol.
-- **`ventas/tests.py` (60)**: pantalla de cobro (login, cajero, admin,
+- **`ventas/tests.py` (69)**: pantalla de cobro (login, cajero, admin,
   template) + catálogo (acceso 403 para el cajero en las 4 vistas, alta con
   costo y código, código duplicado rechazado, precio 0 rechazado, categoría
   nueva, edición, baja lógica, búsqueda por nombre/código, respuesta HTMX con
-  partial y alerta de stock bajo) + **Sprint 3** (carrito: agregar por
+  partial y alerta de stock bajo) + ordenamiento de columnas (asc/desc por
+  nombre, precio, stock y código, con defaults seguros ante parámetros
+  basura) + **Sprint 3** (carrito: agregar por
   código, duplicado suma cantidad, sumar/restar/quitar y total; cobro:
   efectivo con vuelto, pago exacto, tarjeta, stock insuficiente, auditoría de
   la venta; comprobante: formato de pesos y 403 para ventas ajenas; búsqueda
   en tiempo real del escáner desde 3 caracteres).
-- **`administracion/tests.py` (22)**: dashboard (login, admin, 403 cajero,
-  403 sin grupo, estadísticas) y CRUD de usuarios (listar con búsqueda y
+- **`ventas/tests_cargar_demo.py` (9)**: el seed de datos de demo (catálogo
+  completo con códigos únicos, ventas desde el 20/09/2026 sin fechas en el
+  futuro, precios y costos congelados en el detalle, vuelto solo en efectivo,
+  no duplica sin `--limpiar`, regenera idéntico con `--limpiar`, no pisa
+  productos cargados a mano y el caso de totales no múltiplos de 100).
+- **`administracion/tests.py` (24)**: dashboard (login, admin, 403 cajero,
+  403 sin grupo, estadísticas, KPI de stock bajo contando productos activos y
+  linkeando al reporte) y CRUD de usuarios (listar con búsqueda y
   filtro por rol, crear, editar, eliminar con protección de superusuarios,
   activar/desactivar, asignar/quitar roles).
-- **`administracion/tests_reportes.py` (57)**: resumen de ventas, serie
+- **`administracion/tests_reportes.py` (59)**: resumen de ventas, serie
   diaria, top 10, productos rentables, stock valorado, stock por categoría,
   margen bajo, propiedades de `Producto`/`DetalleVenta` y las vistas de
-  reportes (incluye 403 para el cajero).
+  reportes (incluye 403 para el cajero, badge `status-bajo` rojo y el ancla
+  `#stock-bajo`).
 
 ## Estructura del proyecto
 
@@ -433,7 +446,8 @@ kiosco_sprint1/
 │   │                                 # (transacción, stock, precios HU-09).
 │   ├── views.py                      # pantalla_cobro + cobro_agregar /
 │   │                                 # cobro_cantidad / cobro_confirmar (HTMX),
-│   │                                 # lista_productos y CRUD de productos
+│   │                                 # lista_productos (búsqueda + orden por
+│   │                                 # columna asc/desc) y CRUD de productos
 │   │                                 # (@rol_requerido Administrador).
 │   ├── forms.py                      # ProductoForm (HU-04): código de barras
 │   │                                 # sin duplicados, costo, precio, stock,
@@ -441,13 +455,18 @@ kiosco_sprint1/
 │   ├── urls.py                       # 10 rutas: 5 de cobro/ y 5 de productos/.
 │   ├── admin.py                      # Venta (inline DetalleVenta), Producto,
 │   │                                 # Categoria.
-│   ├── tests.py                      # 60 tests.
+│   ├── management/commands/
+│   │   └── cargar_demo.py            # 56 productos + ventas desde el 20/09/2026
+│   │                                 # (semilla fija; --limpiar regenera).
+│   ├── tests.py                      # 69 tests.
+│   ├── tests_cargar_demo.py          # 9 tests del seed de datos.
 │   └── migrations/                   # 0001 catálogo/ventas, 0002 costo,
 │                                     # 0003 código de barras + stock mínimo,
 │                                     # 0004 campos de cobro de la Venta.
 │
 ├── administracion/                   # Panel del dueño.
-│   ├── views.py                      # dashboard (stats de usuarios), CRUD:
+│   ├── views.py                      # dashboard (stats de usuarios + KPI de
+│   │                                 # stock bajo con link al reporte), CRUD:
 │   │                                 # listar, crear, editar, eliminar,
 │   │                                 # asignar_roles, toggle_usuario, y las
 │   │                                 # vistas de reportes (solo admin).
@@ -459,8 +478,8 @@ kiosco_sprint1/
 │   ├── forms.py                      # UsuarioForm (alta/edición con
 │   │                                 # contraseña opcional al editar) y
 │   │                                 # AsignarRolForm (checkboxes de grupos).
-│   ├── tests.py                      # 22 tests.
-│   ├── tests_reportes.py             # 57 tests.
+│   ├── tests.py                      # 24 tests.
+│   ├── tests_reportes.py             # 59 tests.
 │   └── templates → ../templates/administracion/ (8 templates).
 │
 ├── auditoria/                        # Logs de auditoría.

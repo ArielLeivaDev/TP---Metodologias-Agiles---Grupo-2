@@ -26,6 +26,7 @@
                            autocomplete="off"
                            hx-get="{% url 'ventas:lista_productos' %}"
                            hx-trigger="keyup changed delay:300ms, search"
+                           hx-vals='{"orden": "{{ orden }}", "direccion": "{{ direccion }}"}'
                            hx-target="#contenedor-tabla"
                            hx-swap="innerHTML">
                 </div>

@@ -3,12 +3,48 @@
 <table class="admin-table">
     <thead>
         <tr>
-            <th>Producto</th>
-            <th>Código de barras</th>
-            <th>Categoría</th>
-            <th>Precio</th>
-            <th>Costo</th>
-            <th>Stock</th>
+            <th>
+                <a class="th-sort{% if orden == 'producto' %} th-sort-activo{% endif %}"
+                   hx-get="{% url 'ventas:lista_productos' %}?buscar={{ busqueda|urlencode }}&orden=producto&direccion={% if orden == 'producto' and direccion == 'asc' %}desc{% else %}asc{% endif %}"
+                   hx-target="#contenedor-tabla" hx-swap="innerHTML">
+                    Producto <i class="bi {% if orden == 'producto' and direccion == 'desc' %}bi-arrow-down{% else %}bi-arrow-up{% endif %}"></i>
+                </a>
+            </th>
+            <th>
+                <a class="th-sort{% if orden == 'codigo' %} th-sort-activo{% endif %}"
+                   hx-get="{% url 'ventas:lista_productos' %}?buscar={{ busqueda|urlencode }}&orden=codigo&direccion={% if orden == 'codigo' and direccion == 'asc' %}desc{% else %}asc{% endif %}"
+                   hx-target="#contenedor-tabla" hx-swap="innerHTML">
+                    Código de barras <i class="bi {% if orden == 'codigo' and direccion == 'desc' %}bi-arrow-down{% else %}bi-arrow-up{% endif %}"></i>
+                </a>
+            </th>
+            <th>
+                <a class="th-sort{% if orden == 'categoria' %} th-sort-activo{% endif %}"
+                   hx-get="{% url 'ventas:lista_productos' %}?buscar={{ busqueda|urlencode }}&orden=categoria&direccion={% if orden == 'categoria' and direccion == 'asc' %}desc{% else %}asc{% endif %}"
+                   hx-target="#contenedor-tabla" hx-swap="innerHTML">
+                    Categoría <i class="bi {% if orden == 'categoria' and direccion == 'desc' %}bi-arrow-down{% else %}bi-arrow-up{% endif %}"></i>
+                </a>
+            </th>
+            <th>
+                <a class="th-sort{% if orden == 'precio' %} th-sort-activo{% endif %}"
+                   hx-get="{% url 'ventas:lista_productos' %}?buscar={{ busqueda|urlencode }}&orden=precio&direccion={% if orden == 'precio' and direccion == 'asc' %}desc{% else %}asc{% endif %}"
+                   hx-target="#contenedor-tabla" hx-swap="innerHTML">
+                    Precio <i class="bi {% if orden == 'precio' and direccion == 'desc' %}bi-arrow-down{% else %}bi-arrow-up{% endif %}"></i>
+                </a>
+            </th>
+            <th>
+                <a class="th-sort{% if orden == 'costo' %} th-sort-activo{% endif %}"
+                   hx-get="{% url 'ventas:lista_productos' %}?buscar={{ busqueda|urlencode }}&orden=costo&direccion={% if orden == 'costo' and direccion == 'asc' %}desc{% else %}asc{% endif %}"
+                   hx-target="#contenedor-tabla" hx-swap="innerHTML">
+                    Costo <i class="bi {% if orden == 'costo' and direccion == 'desc' %}bi-arrow-down{% else %}bi-arrow-up{% endif %}"></i>
+                </a>
+            </th>
+            <th>
+                <a class="th-sort{% if orden == 'stock' %} th-sort-activo{% endif %}"
+                   hx-get="{% url 'ventas:lista_productos' %}?buscar={{ busqueda|urlencode }}&orden=stock&direccion={% if orden == 'stock' and direccion == 'asc' %}desc{% else %}asc{% endif %}"
+                   hx-target="#contenedor-tabla" hx-swap="innerHTML">
+                    Stock <i class="bi {% if orden == 'stock' and direccion == 'desc' %}bi-arrow-down{% else %}bi-arrow-up{% endif %}"></i>
+                </a>
+            </th>
             <th>Estado</th>
             <th class="actions-col">Acciones</th>
         </tr>

@@ -1629,6 +1629,24 @@ strong {
   color: #F59E0B;
 }
 
+/* Ficha de stock bajo en el dashboard: roja (es una alerta) y clickeable.
+   Rojo fijo: var(--red) es cian en el tema neón. */
+.stat-alert .stat-icon {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05));
+  color: #E5484D;
+}
+
+a.stat-card-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+a.stat-card-link:hover {
+  border-color: rgba(239, 68, 68, 0.5);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.25), var(--shadow-md);
+}
+
 .stat-content {
   min-width: 0;
   flex: 1;
@@ -2105,6 +2123,26 @@ strong {
   color: var(--text-muted);
 }
 
+/* --- Encabezados ordenables del catálogo (click = asc/desc vía HTMX) --- */
+.th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color var(--transition);
+}
+
+.th-sort:hover {
+  color: var(--aviso, #ffb020);
+}
+
+.th-sort-activo {
+  color: var(--aviso, #ffb020);
+}
+
 /* --- Alerta de stock bajo (HU-06): stock <= stock_minimo --- */
 .badge-stock {
   display: inline-flex;
@@ -2138,6 +2176,15 @@ strong {
 .status-active {
   background: rgba(34, 197, 94, 0.1);
   color: var(--green-dark);
+}
+
+/* Stock bajo en el reporte: no es "todo bien" (verde), hay que reponer.
+   Rojo fijo (no var(--red)): en el tema neón --red cae en --caramelo y ese
+   token es cian, lo cual dejaría la alerta sin contraste. */
+.status-bajo {
+  background: rgba(239, 68, 68, 0.15);
+  color: #E5484D;
+  border: 1px solid rgba(239, 68, 68, 0.55);
 }
 
 .status-inactive {
@@ -3216,7 +3263,7 @@ strong {
 }
 
 
-/* Buscador en tiempo real del esc�ner: aparece desde 3 letras */
+/* Buscador en tiempo real del esc�ner: aparece desde 3 letras */
 .cobro-resultados:not(:empty) {
   margin-top: -6px;
 }

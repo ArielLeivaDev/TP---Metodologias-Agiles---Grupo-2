@@ -15,7 +15,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from auditoria.utils import registrar_accion
 from usuarios.decorators import rol_requerido
-from ventas.models import DetalleVenta
+from ventas.models import DetalleVenta, Producto
 
 from . import reportes
 from .forms import AsignarRolForm, UsuarioForm
@@ -113,6 +113,12 @@ def dashboard(request):
     cajeros = User.objects.filter(groups__name="Cajero").distinct().count()
     sin_rol = User.objects.filter(groups__isnull=True, is_active=True).count()
 
+    # Stock bajo (HU-06): mismo umbral que el reporte, y la ficha del
+    # dashboard es un link a ese reporte para ver de qué productos se trata.
+    productos_stock_bajo = Producto.objects.filter(
+        activo=True, stock__lte=reportes.UMBRAL_STOCK_BAJO
+    ).count()
+
     context = {
         "total_usuarios": total_usuarios,
         "usuarios_activos": usuarios_activos,
@@ -120,6 +126,8 @@ def dashboard(request):
         "admins": admins,
         "cajeros": cajeros,
         "sin_rol": sin_rol,
+        "productos_stock_bajo": productos_stock_bajo,
+        "umbral_stock_bajo": reportes.UMBRAL_STOCK_BAJO,
     }
     return render(request, "administracion/dashboard.html", context)
 

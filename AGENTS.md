@@ -26,6 +26,7 @@ Siempre verificar con `Get-NetTCPConnection -LocalPort 8001 -State Listen` antes
 | Tests de una app | `python manage.py test usuarios` |
 | Un solo test class | `python manage.py test usuarios.tests.TestClassName` |
 | Seed de la DB | `python manage.py setup_inicial` |
+| Datos de demo (50+ productos y ventas desde 20/09/2026) | `python manage.py cargar_demo --limpiar` |
 | Migraciones | `python manage.py migrate` |
 
 No hay linter, formatter ni typecheck configurados.
@@ -37,8 +38,9 @@ config/            # Settings y urls raíz del proyecto (DJANGO_SETTINGS_MODULE=
 usuarios/          # Auth: login, logout, registro, roles/grupos, decorador de autorización,
                    # templatetags (buscador, paginación), comando setup_inicial
 ventas/            # Catálogo (Categoria, Producto: CRUD completo con código de barras,
-                   # búsqueda HTMX y alerta de stock), ventas (Venta, DetalleVenta)
-                   # y pantalla de cobro
+                   # búsqueda HTMX, ordenamiento por columna y alerta de stock),
+                   # ventas (Venta, DetalleVenta), pantalla de cobro y el comando
+                   # de datos de demo cargar_demo
 administracion/    # Dashboard y CRUD de usuarios (listar/crear/editar/eliminar/roles/toggle)
 auditoria/         # RegistroAuditoria + signals: audita cambios en usuarios y ventas
 static/            # CSS/JS compartido (styles.css con el estilo visual neón)
@@ -57,4 +59,5 @@ Modelos: `ventas` → `Categoria`, `Producto` (`codigo_barras` unique, `costo`, 
 - **HTMX**: CDN al final de `base.html`. Las vistas revisan `request.headers.get("HX-Request")` y devuelven solo el partial (ej. `ventas:lista_productos` → `ventas/_productos_tabla.html`).
 - **Frontend**: un solo estilo visual, **neón cian**, fijo — `data-tema="neon"` se fuerza en el `<head>` de `base.html` + `data-theme` (claro/oscuro) en `<html>`; tema oscuro en `localStorage['kiosco-tema']`. No existe selector de estilos (el botón `#estiloToggle` y las paletas cartelera/ticket fueron eliminados); botón `#darkToggle` sí. Vocabulario de animaciones "toldo" al final de `static/css/styles.css`; respetar `prefers-reduced-motion`.
 - **Usuarios de prueba** (los crea `setup_inicial`): `admin`/`kiosco2024` (Administrador), `cajero1`/`kiosco2024` (Cajero).
+- **Dinero en la UI**: siempre con el filtro `|montos` (`{% load formatos %}`, en `usuarios/templatetags/formatos.py`) → `$30.500`, con centavos solo si los hay. Nunca `floatformat` para importes.
 - **Estilo de código**: nombres de apps y comentarios en español. Seguir las convenciones existentes al agregar apps o archivos nuevos.

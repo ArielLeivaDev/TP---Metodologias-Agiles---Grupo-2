@@ -112,8 +112,8 @@
         {% endif %}
     </div>
 
-    <!-- Stock bajo -->
-    <div class="admin-card">
+    <!-- Stock bajo (ancla del KPI del dashboard: #stock-bajo) -->
+    <div class="admin-card" id="stock-bajo">
         <h2><i class="bi bi-exclamation-triangle"></i> Stock bajo o agotado</h2>
         {% if stock.stock_bajo %}
         <div class="admin-table-container">
@@ -137,7 +137,7 @@
                             {% if p.stock == 0 %}
                             <span class="status-badge status-inactive">Agotado</span>
                             {% else %}
-                            <span class="status-badge status-active">{{ p.stock }}</span>
+                            <span class="status-badge status-bajo" title="Stock mínimo: {{ p.stock_minimo }}">{{ p.stock }}</span>
                             {% endif %}
                         </td>
                         <td>${{ p.costo|montos }}</td>

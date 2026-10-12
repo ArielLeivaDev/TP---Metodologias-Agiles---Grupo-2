@@ -147,16 +147,40 @@ def cobro_confirmar(request):
     return redirect(f"{reverse('ventas:pantalla_cobro')}?venta={venta.pk}")
 
 
+# Columnas del catálogo que se pueden ordenar desde el encabezado. El nombre
+# del parámetro GET es el de la columna; el valor real es el campo del modelo
+# (categoría es FK, hay que ordenar por el nombre anidado).
+CAMPOS_ORDEN = {
+    "producto": "nombre",
+    "codigo": "codigo_barras",
+    "categoria": "categoria__nombre",
+    "precio": "precio",
+    "costo": "costo",
+    "stock": "stock",
+}
+
+
 # ========== LISTA DE PRODUCTOS (HU-05: búsqueda en tiempo real con HTMX) ==========
 @rol_requerido("Administrador")
 def lista_productos(request):
     """
     Catálogo de productos con búsqueda por nombre, descripción o código de
-    barras. Con HTMX devuelve solo el partial de la tabla; sin HTMX devuelve
-    la página completa.
+    barras (HU-05) y ordenamiento por columna asc/desc. Con HTMX devuelve
+    solo el partial de la tabla; sin HTMX devuelve la página completa.
     """
     busqueda = request.GET.get("buscar", "").strip()
-    productos = Producto.objects.select_related("categoria").order_by("nombre")
+
+    # Orden: solo se aceptan columnas conocidas y direcciones válidas, para
+    # no terminar ordenando por cualquier campo del modelo.
+    orden = request.GET.get("orden", "producto")
+    if orden not in CAMPOS_ORDEN:
+        orden = "producto"
+    direccion = request.GET.get("direccion", "asc")
+    prefijo = "-" if direccion == "desc" else ""
+
+    productos = Producto.objects.select_related("categoria").order_by(
+        prefijo + CAMPOS_ORDEN[orden]
+    )
 
     if busqueda:
         productos = productos.filter(
@@ -165,7 +189,12 @@ def lista_productos(request):
             | Q(codigo_barras__icontains=busqueda)
         )
 
-    contexto = {"productos": productos, "busqueda": busqueda}
+    contexto = {
+        "productos": productos,
+        "busqueda": busqueda,
+        "orden": orden,
+        "direccion": direccion,
+    }
 
     if request.headers.get("HX-Request"):
         return render(request, "ventas/_productos_tabla.html", contexto)

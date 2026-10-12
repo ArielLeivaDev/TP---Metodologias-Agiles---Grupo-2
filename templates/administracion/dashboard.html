@@ -70,6 +70,17 @@
                 <p>Sin Rol Asignado</p>
             </div>
         </div>
+
+        <!-- Stock bajo (HU-06): click = ver qué productos están por agotarse -->
+        <a href="{% url 'administracion:reportes_stock' %}#stock-bajo" class="stat-card stat-alert stat-card-link">
+            <div class="stat-icon">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ productos_stock_bajo }}</h3>
+                <p>Stock bajo (≤ {{ umbral_stock_bajo }})</p>
+            </div>
+        </a>
     </div>
 
     <!-- Accesos rápidos -->

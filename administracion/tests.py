@@ -1,7 +1,11 @@
+from decimal import Decimal
+
 from django.contrib.auth.models import Group, User
 from django.core.exceptions import PermissionDenied
 from django.test import TestCase
 from django.urls import reverse
+
+from ventas.models import Categoria, Producto
 
 
 class DashboardTests(TestCase):
@@ -62,6 +66,40 @@ class DashboardTests(TestCase):
         self.assertEqual(respuesta.context["total_usuarios"], 3)
         self.assertEqual(respuesta.context["admins"], 1)
         self.assertEqual(respuesta.context["cajeros"], 1)
+
+    def test_kpi_stock_bajo_cuenta_productos_y_linkea_al_reporte(self):
+        """El KPI muestra cuántos productos tienen stock bajo y es un link
+        al reporte de stock, donde se ven cuáles son (mejora 6)."""
+        categoria = Categoria.objects.create(nombre="Bebidas")
+        Producto.objects.create(
+            nombre="Alfajor", precio=Decimal("100.00"), costo=Decimal("60.00"),
+            stock=2, categoria=categoria,
+        )
+        Producto.objects.create(
+            nombre="Gaseosa", precio=Decimal("100.00"), costo=Decimal("60.00"),
+            stock=10, categoria=categoria,
+        )
+
+        self.client.login(username="admin_test", password="claveSegura123")
+        respuesta = self.client.get(reverse("administracion:dashboard"))
+
+        self.assertEqual(respuesta.context["productos_stock_bajo"], 1)
+        self.assertEqual(respuesta.context["umbral_stock_bajo"], 5)
+        # La ficha es un link al reporte de stock (ancla de la tabla de bajos).
+        self.assertContains(
+            respuesta,
+            f'href="{reverse("administracion:reportes_stock")}#stock-bajo"',
+        )
+
+    def test_kpi_stock_bajo_ignora_inactivos(self):
+        categoria = Categoria.objects.create(nombre="Bebidas")
+        Producto.objects.create(
+            nombre="Descontinuado", precio=Decimal("100.00"),
+            costo=Decimal("60.00"), stock=1, categoria=categoria, activo=False,
+        )
+        self.client.login(username="admin_test", password="claveSegura123")
+        respuesta = self.client.get(reverse("administracion:dashboard"))
+        self.assertEqual(respuesta.context["productos_stock_bajo"], 0)
 
 
 class ListarUsuariosTests(TestCase):
