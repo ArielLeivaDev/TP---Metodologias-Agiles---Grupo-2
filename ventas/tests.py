@@ -793,3 +793,126 @@ class ComprobanteTests(BaseCobro):
             reverse("ventas:pantalla_cobro"), {"venta": 9999}
         )
         self.assertEqual(respuesta.status_code, 404)
+
+
+class RegistroPorCodigoBarrasTests(BaseCatalogo):
+    """Registro de productos con el lector (actúa como teclado + Enter)."""
+
+    def _datos(self, **extra):
+        datos = {
+            "nombre": "Agua Villavicencio 500ml",
+            "codigo_barras": "7791111111111",
+            "descripcion": "Agua mineral",
+            "costo": "700.00",
+            "precio": "1200.00",
+            "stock": "20",
+            "stock_minimo": "4",
+            "categoria": str(self.categoria.id),
+        }
+        datos.update(extra)
+        return datos
+
+    def test_lectura_con_espacios_se_normaliza(self):
+        """El lector suele agregar espacios/saltos: se guardan sin ellos."""
+        self.client.login(username="admin_cat", password="claveSegura123")
+        self.client.post(
+            reverse("ventas:agregar_producto"),
+            self._datos(codigo_barras="  7791111111111\n"),
+        )
+        producto = Producto.objects.get(nombre="Agua Villavicencio 500ml")
+        self.assertEqual(producto.codigo_barras, "7791111111111")
+
+    def test_lectura_con_espacios_detecta_duplicado(self):
+        self.client.login(username="admin_cat", password="claveSegura123")
+        respuesta = self.client.post(
+            reverse("ventas:agregar_producto"),
+            self._datos(codigo_barras=" 7790000000001 "),
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertFormError(
+            respuesta.context["form"],
+            "codigo_barras",
+            "Ese código de barras ya está registrado en otro producto.",
+        )
+
+    def test_sin_codigo_se_guarda_nulo_y_no_choca(self):
+        """Dos productos sin escanear no violan el unique."""
+        self.client.login(username="admin_cat", password="claveSegura123")
+        self.client.post(
+            reverse("ventas:agregar_producto"), self._datos(codigo_barras="")
+        )
+        self.client.post(
+            reverse("ventas:agregar_producto"),
+            self._datos(
+                nombre="Otro sin código",
+                codigo_barras="",
+                precio="1300.00",
+            ),
+        )
+        sin_codigo = Producto.objects.filter(codigo_barras__isnull=True)
+        self.assertEqual(sin_codigo.count(), 2)
+
+    def test_alta_precarga_codigo_escaneado(self):
+        """?codigo= precarga el campo para registrar desde el escáner."""
+        self.client.login(username="admin_cat", password="claveSegura123")
+        respuesta = self.client.get(
+            reverse("ventas:agregar_producto"), {"codigo": " 7799999999999 "}
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(
+            respuesta.context["form"].initial.get("codigo_barras"),
+            "7799999999999",
+        )
+        self.assertContains(respuesta, "7799999999999")
+
+    def test_buscar_por_codigo_existente(self):
+        self.client.login(username="admin_cat", password="claveSegura123")
+        respuesta = self.client.get(
+            reverse("ventas:buscar_por_codigo"),
+            {"codigo": " 7790000000001 "},
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        datos = respuesta.json()
+        self.assertTrue(datos["existe"])
+        self.assertEqual(datos["codigo"], "7790000000001")
+        self.assertEqual(datos["producto_id"], self.producto.pk)
+        self.assertIn(str(self.producto.pk), datos["url_editar"])
+
+    def test_buscar_por_codigo_libre(self):
+        self.client.login(username="admin_cat", password="claveSegura123")
+        respuesta = self.client.get(
+            reverse("ventas:buscar_por_codigo"), {"codigo": "7799999999999"}
+        )
+        datos = respuesta.json()
+        self.assertFalse(datos["existe"])
+        self.assertEqual(datos["codigo"], "7799999999999")
+
+    def test_buscar_por_codigo_excluye_el_propio_en_edicion(self):
+        self.client.login(username="admin_cat", password="claveSegura123")
+        respuesta = self.client.get(
+            reverse("ventas:buscar_por_codigo"),
+            {"codigo": self.producto.codigo_barras, "excluir": self.producto.pk},
+        )
+        self.assertFalse(respuesta.json()["existe"])
+
+    def test_buscar_por_codigo_solo_administrador(self):
+        self.client.login(username="cajero_cat", password="claveSegura123")
+        respuesta = self.client.get(
+            reverse("ventas:buscar_por_codigo"), {"codigo": "7790000000001"}
+        )
+        self.assertEqual(respuesta.status_code, 403)
+
+    def test_cobro_sin_coincidencias_sugiere_el_alta_al_admin(self):
+        self.client.login(username="admin_cat", password="claveSegura123")
+        respuesta = self.client.get(
+            reverse("ventas:cobro_buscar"), {"codigo": "7799999999999"}
+        )
+        self.assertContains(respuesta, "Dar de alta con este código")
+        self.assertContains(respuesta, "codigo=7799999999999")
+
+    def test_cobro_sin_coincidencias_no_sugiere_al_cajero(self):
+        self.client.login(username="cajero_cat", password="claveSegura123")
+        respuesta = self.client.get(
+            reverse("ventas:cobro_buscar"), {"codigo": "7799999999999"}
+        )
+        self.assertNotContains(respuesta, "Dar de alta con este código")

@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
@@ -87,7 +88,11 @@ def cobro_buscar(request):
     return render(
         request,
         "ventas/_cobro_resultados.html",
-        {"consulta": consulta, "coincidencias": coincidencias},
+        {
+            "consulta": consulta,
+            "coincidencias": coincidencias,
+            "puede_dar_alta": es_administrador(request.user),
+        },
     )
 
 
@@ -213,12 +218,54 @@ def agregar_producto(request):
             )
             return redirect("ventas:lista_productos")
     else:
-        form = ProductoForm()
+        # Registro con lector: se puede llegar con ?codigo=<lo escaneado>
+        # desde el catálogo o el cobro para precargar el campo.
+        form = ProductoForm(
+            initial={"codigo_barras": request.GET.get("codigo", "").strip()}
+        )
 
     return render(
         request,
         "ventas/agregar_producto.html",
         {"form": form, "categorias": Categoria.objects.all()},
+    )
+
+
+@rol_requerido("Administrador")
+def buscar_por_codigo(request):
+    """Lectura para el alta: dado un código escaneado, dice si ya existe.
+
+    GET ?codigo=<lectura>&excluir=<id opcional> → JSON. El lector manda el
+    código con Enter; el JS del form lo consulta para avisar en el momento
+    si el código ya está registrado (y linkear a editar) o está libre.
+    `excluir` se usa en la edición para no marcar el propio producto.
+    """
+    codigo = request.GET.get("codigo", "").strip()
+    if not codigo:
+        return JsonResponse({"codigo": "", "existe": False})
+    excluidos = {}
+    excluir = request.GET.get("excluir", "").strip()
+    if excluir.isdigit():
+        excluidos = {"pk": int(excluir)}
+    producto = (
+        Producto.objects.filter(codigo_barras=codigo)
+        .exclude(**excluidos)
+        .select_related("categoria")
+        .first()
+    )
+    if producto is None:
+        return JsonResponse({"codigo": codigo, "existe": False})
+    return JsonResponse(
+        {
+            "codigo": codigo,
+            "existe": True,
+            "producto_id": producto.pk,
+            "nombre": producto.nombre,
+            "activo": producto.activo,
+            "url_editar": reverse(
+                "ventas:editar_producto", args=[producto.pk]
+            ),
+        }
     )
 
 
