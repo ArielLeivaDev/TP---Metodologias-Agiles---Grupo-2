@@ -4,11 +4,11 @@
 
 | Campo | Valor |
 |---|---|
-| Documento | PRD v2.1 |
-| Fecha | 05/10/2026 |
-| Versión del código documentado | `main` @ `97b87e6` (05-10-2026), Sprint 3 commiteado |
+| Documento | PRD v2.5 |
+| Fecha | 19/10/2026 |
+| Versión del código documentado | `main` @ `10bc092` (19-10-2026) + HU-13 + HU-14, Sprint 4 completo |
 | Proyecto | Sistema Kiosco — TP Metodologías Ágiles (UNAB) |
-| Estado del producto | **Sprint 1 ✅ · Sprint 2 ✅ · Sprint 3 ✅ · Reportes (S4) ✅ · 148 tests en verde** |
+| Estado del producto | **Sprint 1 ✅ · Sprint 2 ✅ · Sprint 3 ✅ · Sprint 4 ✅ (reportes + clientes + cierre de turno) · HU-13 ✅ (catálogo público + WhatsApp) · HU-14 ✅ (cuenta corriente "FIAR") · 299 tests en verde** |
 | Documento relacionado | [ARD — Arquitectura y requerimientos técnicos](ARD.md) |
 
 > Historial: v1.0 (24-09) documentaba el alcance de Sprints 1 y 2 en curso.
@@ -18,6 +18,20 @@
 > v2.1 cierra el Sprint 3 (HU-07/08/09): carrito de cobro con escáner,
 > edición de cantidades y cobro efectivo/tarjeta con vuelto y descuento de
 > stock, adelantado al 05-10 respecto de la entrega del 15-10.
+> v2.2 cierra la fidelidad de clientes (HU-12, entregada el 17-10: app
+> `clientes/`, CRUD, DNI único y puntos 1 cada $100 asociados a la venta) y
+> suma las dos consignas nuevas de la cátedra (catálogo online con pedido por
+> WhatsApp y cuenta corriente), todavía **pendientes**.
+> v2.3 cierra el Sprint 4 integrando el cierre de turno (HU-10, 19-10: modelo
+> `Turno` con snapshot de totales, pantalla de apertura/cierre y control de
+> responsable); suite en 224 tests.
+> v2.4 implementa la integración externa (HU-13, 19-10: app `pedidos/` con
+> catálogo público sin login, pedido registrado, link a WhatsApp y panel
+> interno); suite en 256 tests.
+> v2.5 cierra las consignas de la cátedra con la cuenta corriente (HU-14,
+> 19-10: saldo de deuda por cliente con límite, cobro fiado desde el POS,
+> registro de pagos solo para el Administrador y la deuda otorgada mostrada
+> aparte de la caja y de los ingresos); suite en 299 tests.
 
 ---
 
@@ -53,6 +67,7 @@ provoca:
 | O4 | Interfaz clara y personalizable para el local | Identidad propia + modo oscuro, contraste AA | ✅ Alcanzado (estilo neón fijo + dark) |
 | O5 | Visibilidad del negocio | Reportes de ventas, stock, costos y rentabilidad | ✅ Alcanzado (entrega adelantada del Sprint 4) |
 | O6 | Base sólida para caja y reportes | Modelos de venta normalizados y testeados | ✅ Alcanzado (Sprint 3) |
+| O7 | Reconocer al cliente frecuente | Cliente identificado por DNI con historial y puntos acumulados | ✅ Alcanzado (HU-12, 17-10) |
 
 ### 1.4 Glosario
 
@@ -64,8 +79,13 @@ provoca:
 | Baja lógica | Desactivar un producto (`activo=False`) sin borrar el registro para no romper ventas históricas |
 | Stock bajo | `stock ≤ stock_minimo` (umbral configurable por producto, default 5) |
 | Venta / Detalle | Cabecera de una operación de cobro y sus líneas de producto |
+| Cliente | Consumidor registrado del kiosco (nombre, DNI/CUIT único, teléfono, email) al que se le pueden asociar ventas y acumular puntos |
+| Puntos de fidelidad | Saldo del cliente que suma 1 punto por cada $100 comprados; cada `Venta` guarda los que otorgó |
+| Cuenta corriente (FIAR) | Saldo de deuda de un cliente frecuente con un límite máximo definido por el administrador; lo fiado no entra a la caja hasta que se cobra el pago |
+| Catálogo público | Vista sin login donde los vecinos ven stock (solo "Disponible"/"Agotado") y precios y arman un pedido para retirar, enviado por WhatsApp |
+| Deuda otorgada | Total fiado a cuenta corriente en un turno o rango; se informa aparte porque **no** es plata que entró a la caja |
 | Auditoría | Registro inmutable de acciones relevantes (usuario, acción, fecha, IP) |
-| Sprint | Iteración con entrega demostrable (4 sprints en el TP) |
+| Sprint | Iteración con entrega demostrable (4 sprints planificados + consignas nuevas de la cátedra) |
 
 ---
 
@@ -81,25 +101,38 @@ provoca:
 | **Auditoría** | Registro automático de login/logout con IP; registro de operaciones CRUD de usuarios; lectura en solo lectura vía Django admin | transversal |
 | **Reportes de negocio** | Ventas (KPIs, serie de 14 días, top 10, más rentables) y stock (valorizado, bajo, por categoría, margen bajo) | 4 (adelantado) |
 | **Caja y cobro** | Carrito con lector de código de barras, edición de cantidades, cobro efectivo/tarjeta con vuelto, descuento de stock, comprobante y auditoría de la venta | 3 |
-| **Experiencia de usuario** | Identidad "toldo de barrio" con estilo neón cian fijo, modo oscuro, responsive, accesibilidad | transversal |
+| **Fidelidad de clientes** | Modelo `Cliente` (DNI/CUIT único y normalizado, baja lógica), CRUD para el Administrador, búsqueda y alta rápida desde el cobro, asociación de la venta al cliente y puntos (1 cada $100) con historial | 4 (adelantado 17-10) |
+| **Pedidos online** | Catálogo público sin login (solo "Disponible"/"Agotado"), carrito de pedido, registro del `Pedido` y envío por WhatsApp; panel interno para ver y cambiar el estado | consigna (adelantada 19-10) |
+| **Cuenta corriente** | Cliente con límite de crédito, cobro fiado desde el POS, saldo de deuda con historial de pagos y deuda otorgada informada aparte de la caja y de los ingresos | consigna (adelantada 19-10) |
+| **Datos de demo** | Comando `cargar_demo`: 56 productos en 8 categorías y ventas desde el 20/09/2026 con semilla fija, para demos y pruebas | 4 |
+| **Experiencia de usuario** | Identidad "toldo de barrio" con estilo neón cian fijo, modo oscuro, responsive, accesibilidad, formato de dinero unificado (`montos`) | transversal |
 
-### 2.2 Fuera del alcance actual (pendiente)
+### 2.2 Estado de lo planificado y fuera del alcance actual
 
-- **Sprint 4 — Cierres (entrega 05-11):** modelo `Turno` y cierre de turno
-  (HU-10), modelo `Cliente` con búsqueda por CUIT/DNI (HU-12). El reporte de
-  top 10 (HU-11) ya está entregado.
+- **Sprint 4 — Cierres (entrega 05-11):** ✅ **Completo.** HU-10 (cierre de
+  turno), HU-11 (top 10 y reportes) y HU-12 (clientes frecuentes) entregadas;
+  el cierre de turno se integró el 19-10.
+- **Consignas nuevas de la cátedra** (sin sprint/fecha asignados; ambas ✅
+  **completas el 19-10**):
+  - **Integración externa (HU-13):** ✅ **Completo (19-10).** Catálogo online
+    público con armado de pedido para retiro ("take away"), pedido registrado
+    en el sistema y envío por WhatsApp al local.
+  - **Cuenta corriente ("FIAR", HU-14):** ✅ **Completo (19-10).** Saldo de
+    deuda por cliente frecuente con límite máximo definido por el
+    administrador, cobro a cuenta corriente en la pantalla del POS, registro
+    de pagos (solo Administrador) y deuda otorgada excluida de la caja y de
+    los ingresos.
 - **Por definir:** Mercado Pago, recuperación de contraseña, logo propio,
-  KPIs de negocio en el dashboard principal, comercio configurable
-  (nombre/colores del local parametrizables).
+  comercio configurable (nombre/colores del local parametrizables).
 
 ### 2.3 Restricciones
 
 - Entregas fijas: Sprint 1 (24-09) ✅ · Sprint 2 (01-10) ✅ · Sprint 3 (15-10,
-  cerrado el 05-10) ✅ · Sprint 4 (05-11).
+  cerrado el 05-10) ✅ · Sprint 4 (05-11, cerrado el 19-10) ✅.
 - Aplicación **web** (navegador), sin app nativa; se usa en PC del kiosco y
   eventualmente en celular/tablet.
 - Trabajo en equipo con merge a `main`; los artefactos deben poder integrarse
-  sin romper los tests existentes (148 en verde).
+  sin romper los tests existentes (299 en verde).
 - Idioma y formato argentinos: español rioplatense, moneda ARS, horario
   `America/Argentina/Buenos_Aires`.
 - El servidor de desarrollo corre en el puerto **8001** (conservar ese puerto
@@ -114,14 +147,15 @@ provoca:
 | **Dueño / Administrador** | Grupo `Administrador` (o superuser) | Gestionar usuarios, cargar y consultar productos, ver reportes, stock, costos y auditoría | — (acceso total) |
 | **Cajero** | Grupo `Cajero` | Entrar al sistema y usar la pantalla de cobro | Costos, precios de compra, catálogo, reportes, administración de usuarios (recibe 403) |
 | **Usuario sin rol** | Autenticado sin grupo | Ver un aviso de que aún no tiene permisos | Cualquier pantalla operativa |
-| **Público (no autenticado)** | — | Iniciar sesión o registrarse | Todo el resto (redirigido al login) |
+| **Cliente frecuente** | Registro en `clientes` (no es usuario del sistema, no inicia sesión) | Ser identificado en el cobro por DNI, acumular puntos y (si tiene cuenta corriente) llevarse productos fiados hasta su límite | No accede a ninguna pantalla; solo existe como registro asociado a ventas |
+| **Público (no autenticado)** | — | Ver el catálogo público y armar un pedido para retirar (HU-13); el resto lo redirige al login | Todo el resto (redirigido al login) |
 
 ---
 
 ## 4. Requerimientos funcionales
 
 Prioridad: **M** = Must (imprescindible), **S** = Should, **C** = Could.
-Estado verificado contra el código el 05-10-2026.
+Estado verificado contra el código el 19-10-2026 (`main` @ `b043f1f`).
 
 ### 4.1 Autenticación y control de acceso
 
@@ -188,26 +222,79 @@ Estado verificado contra el código el 05-10-2026.
 | RF-39 | Lugar reservado en la UI para el lector de código de barras (mock visible) | S | HU-07 | ✅ Hecho (input escáner + mock) |
 | RF-40 | Carga de productos al carrito, edición de cantidades, cobro con vuelto/pago exacto y descuento de stock | M | HU-07/08/09 | ✅ Hecho (`ventas/services.py`, HTMX) + búsqueda en tiempo real desde 3 caracteres |
 | RF-41 | Método de pago (efectivo/tarjeta) y cajero responsable en `Venta` | M | HU-09/10 | ✅ Hecho (`metodo_pago`, `usuario`, `monto_entregado`, `vuelto`) |
+| RF-42 | Ordenar la lista de productos por columna (nombre, precio, stock, código) de forma ascendente/descendente | S | HU-05 | ✅ Hecho (`?orden=&direccion=` con whitelist `CAMPOS_ORDEN`) |
+| RF-43 | Datos de demo reproducibles: catálogo cargado y ventas históricas para probar reportes | C | — | ✅ Hecho (`cargar_demo`, semilla fija `20260920`, `--limpiar`) |
+| RF-44 | Todos los importes de la UI con un único formato de pesos (`$30.500`) | S | — | ✅ Hecho (filtro `montos`) |
 
-### 4.6 Auditoría
+### 4.6 Clientes frecuentes (Sprint 4)
+
+| ID | Requerimiento | Prioridad | HU | Estado |
+|---|---|---|---|---|
+| RF-45 | Modelo `Cliente`: nombre, apellido, DNI/CUIT **único**, teléfono, email, fecha de registro, puntos y baja lógica | M | HU-12 | ✅ Hecho (app `clientes`, migración `0001`) |
+| RF-46 | DNI/CUIT normalizado al guardar (se aceptan puntos y guiones; se rechazan letras) y sin duplicados | S | HU-12 | ✅ Hecho (`ClienteForm.clean_dni`) |
+| RF-47 | CRUD de clientes (listar con búsqueda/estadísticas, crear, editar, eliminar como baja lógica, ficha con historial) reservado al Administrador | M | HU-12 | ✅ Hecho (cajero → 403) |
+| RF-48 | El cajero busca un cliente por DNI desde la pantalla de cobro y lo asocia al carrito; puede quitar la asociación | M | HU-12 | ✅ Hecho (`clientes:buscar`/`asociar`/`quitar`, carrito en sesión) |
+| RF-49 | Alta rápida de un cliente nuevo sin salir del cobro, asociándolo en el mismo paso | S | HU-12 | ✅ Hecho (`clientes:alta_rapida`) |
+| RF-50 | La venta guarda el cliente asociado y los puntos que otorgó (1 cada $100) | M | HU-12 | ✅ Hecho (`Venta.cliente`, `Venta.puntos_ganados`, migración `0005`) |
+| RF-51 | El comprobante muestra el cliente y los puntos sumados; la venta sin cliente sigue funcionando igual | S | HU-12 | ✅ Hecho |
+| RF-52 | Venta a **cuenta corriente ("FIAR")** para clientes registrados, con saldo de deuda contra un **límite máximo** definido por el administrador | M | HU-14 | ✅ Hecho (`Venta.metodo_pago = cuenta_corriente`, `Cliente.limite_credito`/`saldo_deuda`) |
+| RF-53 | *(Integración externa)* Catálogo público sin login con stock y precios, armado de pedido para retiro y envío por WhatsApp al local | M | HU-13 | ✅ Hecho (app `pedidos`) |
+
+### 4.7 Cierre de turno (Sprint 4)
+
+| ID | Requerimiento | Prioridad | HU | Estado |
+|---|---|---|---|---|
+| RF-54 | Modelo `Turno`: usuario a cargo, fecha de apertura, fecha de cierre y snapshot de totales | M | HU-10 | ✅ Hecho (migración `0006`) |
+| RF-55 | Abrir el turno (uno activo por persona) y ver los totales en vivo: efectivo, tarjeta y cantidad de operaciones | M | HU-10 | ✅ Hecho (`abrir_turno`, `totales_del_turno`) |
+| RF-56 | Cerrar el turno congelando los totales (no cambian si después se registran más ventas) | M | HU-10 | ✅ Hecho (`cerrar_turno`, transacción + `select_for_update`) |
+| RF-57 | Solo el responsable (o el Administrador) puede ver/cerrar el turno; el turno ajeno da 403 | S | HU-10 | ✅ Hecho (`es_administrador`) |
+| RF-58 | El cierre queda auditado y los montos se muestran con el formato de la UI | S | HU-10 | ✅ Hecho (`registrar_accion` + `formatear_monto`) |
+
+### 4.8 Auditoría
 
 | ID | Requerimiento | Prioridad | Estado |
 |---|---|---|---|
-| RF-42 | Registro automático de login y logout con usuario, acción, fecha e IP | M | ✅ Hecho |
-| RF-43 | Registro de acciones de administración (crear/editar/eliminar/asignar rol/toggle de usuarios) | S | ✅ Hecho |
-| RF-44 | Registros de solo lectura (no editables ni eliminables desde la interfaz) | M | ✅ Hecho (Django admin en solo lectura) |
-| RF-45 | Interfaz propia para consultar la auditoría | C | ⏳ Pendiente (hasta ahora solo vía Django admin) |
+| RF-59 | Registro automático de login y logout con usuario, acción, fecha e IP | M | ✅ Hecho |
+| RF-60 | Registro de acciones de administración (crear/editar/eliminar/asignar rol/toggle de usuarios), de cliente (alta/edición/baja) y del cierre de turno | S | ✅ Hecho |
+| RF-61 | Registros de solo lectura (no editables ni eliminables desde la interfaz) | M | ✅ Hecho (Django admin en solo lectura) |
+| RF-62 | Interfaz propia para consultar la auditoría | C | ⏳ Pendiente (hasta ahora solo vía Django admin) |
 
-### 4.7 Experiencia de usuario y presentación
+### 4.9 Experiencia de usuario y presentación
 
 | ID | Requerimiento | Prioridad | Estado |
 |---|---|---|---|
-| RF-46 | Identidad visual propia ("toldo de barrio"), coherente en todas las pantallas | S | ✅ Hecho |
-| RF-47 | Estilo visual consistente persistido por navegador | C | ✅ Hecho (neón cian fijo en `data-tema`; se eliminaron Cartelera y Ticket) |
-| RF-48 | Modo oscuro persistente, sin destello al cargar, respetando `prefers-color-scheme` | C | ✅ Hecho |
-| RF-49 | Diseño responsive (PC, celular) | S | ✅ Hecho |
-| RF-50 | Accesibilidad: contraste AA, navegación por teclado (`focus-visible`), `prefers-reduced-motion`, `aria-label` en controles de tema | S | ✅ Hecho |
-| RF-51 | Páginas de error amigables 403 y 404 | S | ✅ Hecho |
+| RF-63 | Identidad visual propia ("toldo de barrio"), coherente en todas las pantallas | S | ✅ Hecho |
+| RF-64 | Estilo visual consistente persistido por navegador | C | ✅ Hecho (neón cian fijo en `data-tema`; se eliminaron Cartelera y Ticket) |
+| RF-65 | Modo oscuro persistente, sin destello al cargar, respetando `prefers-color-scheme` | C | ✅ Hecho |
+| RF-66 | Diseño responsive (PC, celular) | S | ✅ Hecho |
+| RF-67 | Accesibilidad: contraste AA, navegación por teclado (`focus-visible`), `prefers-reduced-motion`, `aria-label` en controles de tema | S | ✅ Hecho |
+| RF-68 | Páginas de error amigables 403 y 404 | S | ✅ Hecho |
+| RF-69 | Marcar el stock bajo en rojo fijo (no el color de la paleta) para que no se confunda con el neón | C | ✅ Hecho (`.status-bajo` / `.badge-stock-bajo`) |
+
+### 4.10 Catálogo público y pedidos (integración externa, HU-13)
+
+| ID | Requerimiento | Prioridad | HU | Estado |
+|---|---|---|---|---|
+| RF-70 | Catálogo público **sin login** en `/catalogo/` con productos activos, precios y categorías | M | HU-13 | ✅ Hecho (`pedidos:catalogo`) |
+| RF-71 | La vitrina pública muestra solo **"Disponible" / "Agotado"**: nunca la cantidad exacta de stock | M | HU-13 | ✅ Hecho |
+| RF-72 | El visitante arma su pedido (agregar/quitar ítems) y lo confirma con su nombre; el pedido queda **registrado en el sistema** (`Pedido` + `ItemPedido`, con total y precios congelados) | M | HU-13 | ✅ Hecho |
+| RF-73 | Al confirmar se arma el mensaje y el link a **WhatsApp** con el teléfono del local configurable (`KIOSCO_WHATSAPP`); si no está configurado, se avisa en vez de abrir un chat falso | M | HU-13 | ✅ Hecho (`pedidos/config.py`) |
+| RF-74 | Panel interno de pedidos (`/catalogo/panel/`, solo Administrador): listar, filtrar por estado, ver el detalle y marcar **entregado/cancelado** (acciones auditadas) | M | HU-13 | ✅ Hecho |
+
+### 4.11 Cuenta corriente — "FIAR" (HU-14)
+
+| ID | Requerimiento | Prioridad | HU | Estado |
+|---|---|---|---|---|
+| RF-75 | `Cliente` con **límite de crédito** (`limite_credito`, 0 = sin cuenta corriente) y **saldo de deuda** persistido (`saldo_deuda`) | M | HU-14 | ✅ Hecho (migración `clientes/0002`) |
+| RF-76 | El Administrador define/edita el límite desde el alta y la edición de clientes; se rechazan valores negativos | M | HU-14 | ✅ Hecho (`ClienteForm.clean_limite_credito`) |
+| RF-77 | El **cajero cobra "FIAR"** (método `cuenta_corriente`) desde el POS, solo si hay un cliente con cuenta corriente asociado al carrito | M | HU-14 | ✅ Hecho (`METODOS_PAGO_VALIDOS`, opción condicional en `_carrito.html`) |
+| RF-78 | El cobro fiado se **rechaza** si supera el límite (deuda actual + total), indicando cuánto debe, el límite y cuánto le queda; el carrito no se vacía | M | HU-14 | ✅ Hecho (`clientes.services.validar_fiado` dentro de la transacción de `confirmar_venta`) |
+| RF-79 | Al fiar, la deuda del cliente sube en la misma transacción de la venta (bloqueo de fila, sin pisar valores) | M | HU-14 | ✅ Hecho (`sumar_deuda` con `F()`) |
+| RF-80 | **Solo el Administrador** registra pagos de la deuda; cada pago queda en el historial (`PagoCuentaCorriente`) con monto, fecha, usuario y observación | M | HU-14 | ✅ Hecho (`clientes:registrar_pago` @rol Administrador; cajero → 403) |
+| RF-81 | Un pago de monto ≤ 0 o mayor a la deuda se rechaza (no baja el saldo) | M | HU-14 | ✅ Hecho (`registrar_pago` transaccional + `select_for_update`) |
+| RF-82 | La ficha del cliente muestra el estado de la cuenta corriente: límite, deuda, crédito disponible, aviso de "al límite" e historial de pagos | M | HU-14 | ✅ Hecho (`detalle_cliente.html`) |
+| RF-83 | El listado de clientes muestra la cuenta corriente (deuda o "al día" con el límite) | S | HU-14 | ✅ Hecho (`_clientes_tabla.html`) |
+| RF-84 | Lo fiado **no** cuenta como ingreso ni entra a la caja del turno: se informa aparte como **"Deuda otorgada"**, guardada también en el cierre del turno (`Turno.deuda_otorgada`) | M | HU-14 | ✅ Hecho (`METODOS_EN_CAJA`, `reportes.deuda_otorgada`, `totales_del_turno`/`cerrar_turno`) |
 
 ---
 
@@ -224,7 +311,7 @@ Estado verificado contra el código el 05-10-2026.
 | RNF-07 | Integridad | Bajas de producto **lógicas**: nunca borrar registros referenciados por ventas |
 | RNF-08 | Disponibilidad | Idempotencia del seed de datos (`setup_inicial`) para poder reejecutarlo sin romper el entorno |
 | RNF-09 | Rendimiento | Respuesta interactiva en CRUD y búsquedas; la búsqueda de productos no recarga la página (HTMX) |
-| RNF-10 | Mantenibilidad | Suite de tests automatizados verde antes de cada entrega (**148 tests** hoy) |
+| RNF-10 | Mantenibilidad | Suite de tests automatizados verde antes de cada entrega (**299 tests** hoy) |
 | RNF-11 | Mantenibilidad | Convención de nombres y comentarios en español; estructura de apps por dominio |
 | RNF-12 | Portabilidad | Corre en Windows con Python 3.10+; PostgreSQL principal con fallback automático a SQLite |
 | RNF-13 | Localización | Español rioplatense (`es-ar`), huso horario Argentina, formato de fecha/hora local |
@@ -307,11 +394,15 @@ el monto entregado y que el sistema calcule el vuelto exacto.
   vuelto y botones de billetes/pago exacto, auditoría y comprobante;
   `metodo_pago` en `Venta`; 31 tests nuevos de cobro).*
 
-### Sprint 4 (Entrega 05-11) — 🟡 Parcial
+### Sprint 4 (Entrega 05-11) — ✅ Completo (cerrado el 19-10)
 
-**HU-10 — Cierre de turno** — ⏳ Pendiente.
-*CA: se registra el total en efectivo, en tarjeta, la cantidad de operaciones y
-qué usuario estaba a cargo. Requiere modelo `Turno` y FK de `Venta` a usuario.*
+**HU-10 — Cierre de turno** — ✅ **Hecho (19-10-2026).**
+- CA: se registra el total en efectivo, en tarjeta, la cantidad de operaciones y
+  qué usuario estaba a cargo.
+- *Implementado con el modelo `Turno` (migración `0006`), los servicios
+  `abrir_turno`/`totales_del_turno`/`cerrar_turno` (snapshot congelado en
+  transacción) y la pantalla `/ventas/turno/cierre/`. Solo el responsable o el
+  Administrador ven/cierran el turno; el cierre queda auditado. 17 tests.*
 
 **HU-11 — Reporte de productos más vendidos** — ✅ **Hecho (adelantado).**
 - CA: el reporte muestra el top 10 de productos por cantidad vendida en un
@@ -319,11 +410,46 @@ qué usuario estaba a cargo. Requiere modelo `Turno` y FK de `Venta` a usuario.*
 - *Implementado en `/administracion/reportes/ventas/` junto con KPIs
   (ingresos, costo, ganancia, ticket promedio, margen), serie de 14 días y
   productos más rentables; más el reporte de stock en
-  `/administracion/reportes/stock/`. 57 tests.*
+  `/administracion/reportes/stock/`. 59 tests.*
 
-**HU-12 — Clientes frecuentes (opcional)** — ⏳ Pendiente.
-*CA: el cajero busca por CUIT y trae los datos automáticamente; si es nuevo, lo
-carga en una ventanita rápida. Requiere modelo `Cliente`.*
+**HU-12 — Clientes frecuentes (opcional)** — ✅ **Hecho (17-10-2026).**
+- CA: el cajero busca por CUIT/DNI y trae los datos automáticamente; si es
+  nuevo, lo carga en una ventanita rápida.
+- *Implementado en la app `clientes/`: modelo `Cliente` (DNI/CUIT único y
+  normalizado, baja lógica), CRUD para el Administrador, búsqueda/asociación y
+  alta rápida desde el cobro, `Venta.cliente` + `Venta.puntos_ganados`
+  (1 punto cada $100, migración `0005`) y ficha con historial. 37 tests.*
+
+### Consignas nuevas de la cátedra
+
+**HU-13 — Catálogo online con pedido para retirar (take away)** — ✅ **Hecho (19-10-2026).**
+Como vecino, quiero ver el catálogo del kiosco con el stock y los precios
+actuales, armar mi pedido y enviarlo por WhatsApp, para pasar a retirarlo sin
+hacer cola.
+- CA: la vista es pública (sin login); solo muestra productos activos y con
+  stock; el mensaje del pedido y el link a WhatsApp usan el teléfono del local
+  configurable.
+- *Implementado con la app `pedidos/`: catálogo público en `/catalogo/`, carrito
+  de pedido en sesión, `Pedido` + `ItemPedido` registrados en el sistema, link
+  `wa.me` con el mensaje armado y panel interno de pedidos para el
+  Administrador (marcar entregado/cancelado). El stock se muestra como
+  **"Disponible" / "Agotado"**, nunca la cantidad exacta. 32 tests.*
+
+**HU-14 — Cuenta corriente ("FIAR") para clientes frecuentes** — ✅ **Hecho (19-10-2026).**
+Como administrador, quiero que un cliente registrado pueda llevarse productos
+y acumular deuda hasta un límite máximo que yo defino, para fidelizar a los
+vecinos de confianza.
+- CA: el cajero puede elegir "Cobrar a Cuenta Corriente" solo si la venta tiene
+  un cliente asociado; el sistema **rechaza la venta si supera el límite**
+  (validado en el servidor); el saldo y los pagos quedan registrados y
+  visibles en la ficha del cliente.
+- *Implementado: `Cliente.limite_credito` + `Cliente.saldo_deuda` y modelo
+  `PagoCuentaCorriente` (migración `clientes/0002`); método de pago
+  `cuenta_corriente` en `Venta` (migración `ventas/0007`); validación del
+  límite y suma de la deuda dentro de la transacción de `confirmar_venta`;
+  pantalla de pago en la ficha del cliente (solo Administrador); la deuda
+  otorgada se informa aparte de la caja y de los ingresos y se congela en
+  `Turno.deuda_otorgada`. 43 tests nuevos de cuenta corriente.*
 
 ---
 
@@ -337,10 +463,15 @@ carga en una ventanita rápida. Requiere modelo `Cliente`.*
    - **Cajero** → pantalla de cobro.
    - **Sin rol** → aviso de que un administrador debe asignarle uno.
 3. El administrador carga/edita/da de baja productos, consulta reportes de
-   ventas y stock y gestiona usuarios; cada acción sensible queda auditada.
+   ventas y stock, gestiona usuarios y administra la ficha de los clientes
+   frecuentes; cada acción sensible queda auditada.
 4. El cajero opera la pantalla de cobro: escanea/tipea códigos, edita
-   cantidades, cobra en efectivo o tarjeta con vuelto y confirma la venta
-   (descuenta stock, queda auditada y muestra el comprobante).
+   cantidades, opcionalmente asocia un cliente por DNI (o lo crea al vuelo) y
+   cobra en efectivo o tarjeta con vuelto; al confirmar se descuenta stock, se
+   suman los puntos del cliente, la venta queda auditada y se muestra el
+   comprobante. Si el cliente tiene cuenta corriente, puede cobrar **FIAR**
+   (siempre dentro del límite); esa deuda se informa aparte, no entra a la caja
+   del turno y el Administrador la cobra después desde la ficha del cliente.
 5. Cualquier intento de acceder a una URL fuera del rol responde **403** con
    página de error amigable.
 
@@ -366,7 +497,32 @@ carga en una ventanita rápida. Requiere modelo `Cliente`.*
 - [x] Confirmar la venta con efectivo o tarjeta, mostrando el vuelto.
 - [x] El stock se descuenta al confirmar y la venta queda registrada con su
       método de pago y cajero.
-- [x] Los tests previos siguen en verde y se suman los nuevos (148 en total).
+- [x] Los tests previos siguen en verde y se suman los nuevos (148 en ese momento).
+
+**Criterios de aceptación del Sprint 4 (cumplidos el 19-10-2026):**
+
+- [x] El administrador ve el reporte del top 10 de productos más vendidos por
+      período (HU-11).
+- [x] El administrador registra clientes con DNI/CUIT único y los da de baja
+      sin perder su historial (HU-12).
+- [x] El cajero busca un cliente por DNI en el cobro, lo asocia (o lo crea al
+      vuelo) y la venta suma los puntos del cliente (HU-12).
+- [x] El cajero cierra el turno y ve los totales por método, la cantidad de
+      operaciones y quién estuvo a cargo (HU-10).
+- [x] Los tests previos siguen en verde y se suman los nuevos (256 en total).
+
+**Criterios de aceptación de las consignas de la cátedra (cumplidos el 19-10-2026):**
+
+- [x] El vecino arma un pedido desde el catálogo público y lo envía por
+      WhatsApp, y el pedido queda registrado y visible en el panel (HU-13).
+- [x] El cajero cobra "FIAR" a un cliente con cuenta corriente y el sistema
+      rechaza la venta si se pasa del límite definido por el administrador
+      (HU-14).
+- [x] El administrador cobra los pagos de la deuda desde la ficha del cliente
+      y ve el saldo y el historial actualizados (HU-14).
+- [x] Lo fiado no entra a la caja ni a los ingresos: se informa aparte como
+      **deuda otorgada** (HU-14).
+- [x] Los tests previos siguen en verde y se suman los nuevos (299 en total).
 
 ---
 
@@ -377,7 +533,8 @@ carga en una ventanita rápida. Requiere modelo `Cliente`.*
 | 1 | 24-09 | Login, roles, 403 server-side, post-login por rol | ✅ Completo |
 | 2 | 01-10 | Catálogo: CRUD, código de barras, búsqueda HTMX, alerta de stock, gestión de usuarios | ✅ Completo |
 | 3 | 15-10 | Carrito con lector de código de barras, edición de carrito, cobro efectivo/tarjeta con vuelto, método de pago, descuento de stock | ✅ Completo (cerrado 05-10) |
-| 4 | 05-11 | **Reportes (HU-11): ✅ entregado** · Cierre de turno (HU-10), clientes frecuentes (HU-12) | 🟡 Parcial |
+| 4 | 05-11 | **Reportes (HU-11) ✅** · **Clientes frecuentes (HU-12) ✅ (17-10)** · **Cierre de turno (HU-10) ✅ (19-10)** | ✅ Completo |
+| - | sin fecha | **Consignas nuevas de la cátedra:** catálogo online + pedido por WhatsApp (HU-13) ✅ (19-10) y cuenta corriente "FIAR" (HU-14) ✅ (19-10) | ✅ 2/2 |
 
 ---
 
@@ -397,21 +554,25 @@ carga en una ventanita rápida. Requiere modelo `Cliente`.*
 | R-10 | Riesgo | Configuración de correo inválida (`MAILERS` en vez de `EMAIL_BACKEND`) | Bajo | Abierto: bloquea "olvidé mi contraseña" |
 | R-11 | Supuesto | Los usuarios de prueba (`admin`/`cajero1`, contraseña `kiosco2024`) son solo para desarrollo | — | No usar en producción; rotar credenciales |
 | R-12 | Supuesto | El local dispone de PC con navegador moderno y conexión local al servidor | — | Fallback a SQLite para demo sin PostgreSQL |
-| D-01 | Dependencia | Consignas/entregas del TP con fechas fijas (Sprint 3: 15-10) | — | ✅ Cumplida: Sprint 3 cerrado 10 días antes |
+| R-13 | ~~Riesgo~~ | Los pedidos del catálogo público (HU-13) llegan por WhatsApp y no quedan registrados en el sistema | Medio | ✅ **Resuelto (19-10):** cada pedido se guarda como `Pedido` + `ItemPedido` y el kiosquero lo ve en el panel de pedidos |
+| R-14 | ~~Riesgo~~ | Lo fiado por cuenta corriente (HU-14) no es plata que entra a la caja | Medio | ✅ **Resuelto (19-10):** `METODOS_EN_CAJA = ("efectivo", "tarjeta")`; lo fiado se muestra aparte como **deuda otorgada** (en el turno y en los reportes) y no suma a los ingresos |
+| D-01 | Dependencia | Consignas/entregas del TP con fechas fijas (Sprint 4: 05-11) | — | ✅ Cumplida: Sprint 4 cerrado el 19-10 |
+| D-02 | ~~Dependencia~~ | HU-13 requería el teléfono del kiosco configurable | — | ✅ **Resuelto (19-10):** `KIOSCO_WHATSAPP`/`KIOSCO_NOMBRE` en `.env` (con `.env.example`), leídos por `pedidos/config.py` |
 
 ---
 
 ## 11. Criterios de éxito y métricas
 
-| Métrica | Objetivo | Valor al 05-10-2026 |
+| Métrica | Objetivo | Valor al 19-10-2026 |
 |---|---|---|
-| Tests automatizados en verde | 100% de la suite | **148/148 OK** (usuarios 9, ventas 60, administración 22, reportes 57) |
+| Tests automatizados en verde | 100% de la suite | **299/299 OK** (usuarios 9, ventas 98 —incluye 9 de `cargar_demo`—, clientes 71, pedidos 32, administración 89 —24 + 65 de reportes—, auditoría 0) |
 | Historias Sprint 1 | 3/3 | 3/3 ✅ |
 | Historias Sprint 2 | 3/3 | 3/3 ✅ (HU-04, HU-05, HU-06 cerradas) |
 | Historias Sprint 3 | 3/3 al 15-10 | 3/3 ✅ (HU-07, HU-08, HU-09 cerradas el 05-10) |
-| Historias Sprint 4 | 3/3 al 05-11 | 1/3 ✅ (HU-11 entregado) |
-| Rutas críticas protegidas por rol | 100% | ✅ administración, catálogo y reportes → 403 para Cajero |
-| Bloqueantes abiertos | 0 al entregar | **0 de severidad alta** (R-04 y R-05 resueltos) |
+| Historias Sprint 4 | 3/3 al 05-11 | 3/3 ✅ (HU-10, HU-11 y HU-12 cerradas) |
+| Consignas nuevas de la cátedra (HU-13/HU-14) | por definir | 2/2 ✅ (HU-13 y HU-14 cerradas el 19-10) |
+| Rutas críticas protegidas por rol | 100% | ✅ administración, catálogo, clientes, reportes, pedidos y turno ajeno → 403 para Cajero (el catálogo público es la excepción intencional: sin login) |
+| Bloqueantes abiertos | 0 al entregar | **0 de severidad alta** (R-04, R-05 y el bug del seed resueltos) |
 
 ---
 
@@ -422,3 +583,7 @@ carga en una ventanita rápida. Requiere modelo `Cliente`.*
 | 1.0 | 24/09/2026 | Versión inicial (alcance Sprint 1 + 2 en curso) |
 | 2.0 | 05/10/2026 | Cierre del Sprint 2 (CRUD + HTMX + alerta de stock), reportes del Sprint 4 entregados, 110 tests, riesgos resueltos/abiertos actualizados |
 | 2.1 | 05/10/2026 | Cierre del Sprint 3: RF-37 a RF-41 completadas, HU-07/08/09 ✅, R-04/R-05 resueltos, 148 tests |
+| 2.2 | 19/10/2026 | Fidelidad de clientes (HU-12) ✅: app `clientes/`, RF-45 a RF-51, riesgos R-13/R-14 y dependencia D-02; consignas nuevas de la cátedra (HU-13 catálogo público + WhatsApp, HU-14 cuenta corriente) documentadas como pendientes; 207 tests |
+| 2.3 | 19/10/2026 | Cierre del Sprint 4 (HU-10) ✅: modelo `Turno` con snapshot de totales, RF-54 a RF-58, pantalla de apertura/cierre y control de responsable; reenumerados los RF de auditoría (RF-59…) y UX (RF-63…); Sprint 4 marcado completo; 224 tests |
+| 2.4 | 19/10/2026 | Integración externa (HU-13) ✅: app `pedidos/` con catálogo público sin login, `Pedido`/`ItemPedido` registrados, link a WhatsApp configurable y panel interno de pedidos; RF-70 a RF-74; riesgos R-13/D-02 resueltos; 256 tests |
+| 2.5 | 19/10/2026 | Cuenta corriente "FIAR" (HU-14) ✅: `Cliente.limite_credito`/`saldo_deuda` + `PagoCuentaCorriente`, cobro fiado desde el POS con validación de límite, pagos solo para el Administrador, deuda otorgada fuera de la caja y de los ingresos (`Turno.deuda_otorgada`); RF-75 a RF-84; riesgo R-14 resuelto; consignas de la cátedra 2/2; 299 tests |

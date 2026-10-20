@@ -69,13 +69,14 @@ class Venta(models.Model):
      METODO_PAGO = [
          ("efectivo", "Efectivo"),
          ("tarjeta", "Tarjeta"),
+         ("cuenta_corriente", "Cuenta corriente (FIAR)"),
      ]
 
      fecha = models.DateTimeField(auto_now_add=True)
      total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
      finalizada = models.BooleanField(default=False)
      metodo_pago = models.CharField(
-         max_length=10,
+         max_length=20,
          choices=METODO_PAGO,
          default="efectivo",
          verbose_name="Método de pago",
@@ -103,6 +104,20 @@ class Venta(models.Model):
          blank=True,
          help_text="Monto entregado menos el total. Solo para efectivo.",
      )
+     cliente = models.ForeignKey(
+         "clientes.Cliente",
+         on_delete=models.SET_NULL,
+         null=True,
+         blank=True,
+         related_name="ventas",
+         verbose_name="Cliente asociado",
+         help_text="Cliente de la fidelidad (HU-12). Vacío si es consumidor final.",
+     )
+     puntos_ganados = models.PositiveIntegerField(
+         default=0,
+         verbose_name="Puntos de fidelidad ganados",
+         help_text="Puntos que sumó esta venta al cliente: 1 cada $100.",
+     )
 
      def __str__(self):
          return f"Venta N° {self.id} - {self.fecha.strftime('%d/%m/%Y')}"
@@ -126,6 +141,60 @@ class DetalleVenta(models.Model):
          return self.subtotal() - self.costo_total()
      def __str__(self):
          return f"{self.cantidad}x {self.producto.nombre}"
-     
-     
-# Create your models here.
+
+
+class Turno(models.Model):
+    """HU-10: turno de caja. Registra quién estaba a cargo y, al cerrar,
+    congela los totales (efectivo, tarjeta y operaciones) para poder
+    contar la plata aunque después se registren más ventas.
+    """
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="turnos",
+        verbose_name="Usuario a cargo",
+    )
+    fecha_apertura = models.DateTimeField(auto_now_add=True)
+    fecha_cierre = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Vacío mientras el turno sigue abierto.",
+    )
+    total_efectivo = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("0.00")
+    )
+    total_tarjeta = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("0.00")
+    )
+    deuda_otorgada = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Deuda otorgada (cuenta corriente)",
+        help_text="HU-14: lo fiado en el turno. No es plata en la caja, "
+                  "por eso se informa aparte de efectivo y tarjeta.",
+    )
+    cantidad_operaciones = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-fecha_apertura"]
+        verbose_name = "turno"
+        verbose_name_plural = "turnos"
+
+    @property
+    def activo(self):
+        """True mientras no se registró el cierre."""
+        return self.fecha_cierre is None
+
+    @property
+    def total_general(self):
+        """Lo que debería haber en la caja sumando ambos métodos."""
+        return self.total_efectivo + self.total_tarjeta
+
+    def __str__(self):
+        estado = "abierto" if self.activo else "cerrado"
+        nombre = self.usuario.username if self.usuario else "sin usuario"
+        return f"Turno de {nombre} - {self.fecha_apertura:%d/%m/%Y %H:%M} ({estado})"

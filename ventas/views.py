@@ -7,22 +7,31 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from auditoria.utils import registrar_accion
+from clientes import services as fidelidad
 from usuarios.decorators import es_administrador, rol_requerido
 
 from . import services
 from .forms import ProductoForm
-from .models import Categoria, Producto, Venta
+from .models import Categoria, Producto, Turno, Venta
 from .services import ErrorCobro
 
 
-def _contexto_cobro(request, error=None):
-    """Items, total y métodos de pago para la pantalla (y sus parciales)."""
+def contexto_cobro(request, error=None, form_rapido=None):
+    """Items, total, métodos de pago y cliente (HU-12/HU-14) para la pantalla."""
     items = services.items_del_carrito(request)
+    cliente = fidelidad.cliente_de_sesion(request)
+    total = services.total_del_carrito(items)
     return {
         "items": items,
-        "total": services.total_del_carrito(items),
+        "total": total,
         "metodos_pago": Venta.METODO_PAGO,
+        "cliente": cliente,
+        "puntos_venta": fidelidad.puntos_por_monto(total),
+        "puntos_regla": fidelidad.PUNTOS_POR_PESO,
+        "form_rapido": form_rapido,
         "error": error,
+        # HU-14: para decidir si se puede ofrecer "cuenta corriente".
+        "puede_fiar": bool(cliente and cliente.puede_fiar(total)),
     }
 
 
@@ -34,7 +43,7 @@ def pantalla_cobro(request):
     (HU-08) y cobrar en efectivo o tarjeta con vuelto (HU-09).
     Con `?venta=<id>` muestra el comprobante de una venta ya confirmada.
     """
-    contexto = _contexto_cobro(request)
+    contexto = contexto_cobro(request)
 
     venta_id = request.GET.get("venta")
     if venta_id:
@@ -62,7 +71,7 @@ def cobro_agregar(request):
     except ErrorCobro as exc:
         error = str(exc)
 
-    contexto = _contexto_cobro(request, error=error)
+    contexto = contexto_cobro(request, error=error)
     if request.headers.get("HX-Request"):
         return render(request, "ventas/_carrito.html", contexto)
     return render(request, "ventas/pantalla_cobro.html", contexto)
@@ -112,7 +121,7 @@ def cobro_cantidad(request):
     except (ValueError, ErrorCobro) as exc:
         error = str(exc)
 
-    contexto = _contexto_cobro(request, error=error)
+    contexto = contexto_cobro(request, error=error)
     if request.headers.get("HX-Request"):
         return render(request, "ventas/_carrito.html", contexto)
     return render(request, "ventas/pantalla_cobro.html", contexto)
@@ -134,22 +143,103 @@ def cobro_confirmar(request):
         return render(
             request,
             "ventas/pantalla_cobro.html",
-            _contexto_cobro(request, error=str(exc)),
+            contexto_cobro(request, error=str(exc)),
         )
 
+    detalle = (
+        f"Venta N° {venta.pk} por {services.formatear_monto(venta.total)} "
+        f"({venta.get_metodo_pago_display()})"
+    )
+    if venta.cliente_id:
+        detalle += (
+            f" · Cliente: {venta.cliente.nombre_completo} "
+            f"(+{venta.puntos_ganados} pts)"
+        )
     registrar_accion(
         request.user,
         "Venta confirmada",
-        f"Venta N° {venta.pk} por {services.formatear_monto(venta.total)} "
-        f"({venta.get_metodo_pago_display()})",
+        detalle,
         request,
     )
-    messages.success(
-        request,
+    mensaje = (
         f"Venta N° {venta.pk} confirmada. "
-        f"Total: {services.formatear_monto(venta.total)}.",
+        f"Total: {services.formatear_monto(venta.total)}."
     )
+    if venta.cliente_id:
+        mensaje += (
+            f" {venta.cliente.nombre_completo} sumó "
+            f"{venta.puntos_ganados} puntos."
+        )
+    messages.success(request, mensaje)
     return redirect(f"{reverse('ventas:pantalla_cobro')}?venta={venta.pk}")
+
+
+# ========== CIERRE DE TURNO (Sprint 4: HU-10) ==========
+@rol_requerido("Cajero", "Administrador")
+def cierre_turno(request):
+    """
+    HU-10: abrir turno, ver los totales en vivo (efectivo, tarjeta y
+    cantidad de operaciones) y cerrarlo para contar la caja.
+    Con `?turno=<id>` muestra el resumen de ese turno (el recién cerrado
+    o cualquiera histórico, con control de responsable).
+    """
+    if request.method == "POST":
+        accion = request.POST.get("accion", "")
+        turno = services.turno_abierto(request.user)
+
+        if accion == "abrir" and turno is None:
+            services.abrir_turno(request.user)
+            messages.success(request, "Turno abierto. ¡Buen trabajo!")
+            return redirect("ventas:cierre_turno")
+
+        if accion == "cerrar" and turno is not None:
+            try:
+                turno = services.cerrar_turno(turno)
+            except ErrorCobro as exc:
+                messages.error(request, str(exc))
+                return redirect("ventas:cierre_turno")
+
+            registrar_accion(
+                request.user,
+                "Cierre de turno",
+                f"Efectivo {services.formatear_monto(turno.total_efectivo)} · "
+                f"Tarjeta {services.formatear_monto(turno.total_tarjeta)} · "
+                f"Fiado (cuenta corriente) "
+                f"{services.formatear_monto(turno.deuda_otorgada)} · "
+                f"{turno.cantidad_operaciones} operaciones",
+                request,
+            )
+            messages.success(
+                request, "Turno cerrado. Contá la caja antes de retirarte."
+            )
+            return redirect(f"{reverse('ventas:cierre_turno')}?turno={turno.pk}")
+
+        messages.error(request, "La acción no coincide con el estado del turno.")
+        return redirect("ventas:cierre_turno")
+
+    # GET: ?turno=<id> para un turno puntual, si no el turno abierto propio.
+    turno = services.turno_abierto(request.user)
+    turno_id = request.GET.get("turno")
+    if turno_id:
+        turno = get_object_or_404(Turno, pk=turno_id)
+        if turno.usuario_id != request.user.pk and not es_administrador(
+            request.user
+        ):
+            raise PermissionDenied("Solo podés ver el turno a tu nombre.")
+
+    contexto = {
+        "turno": turno,
+        "totales": services.totales_del_turno(turno) if turno else None,
+        "puede_cerrar": bool(
+            turno
+            and turno.activo
+            and (
+                turno.usuario_id == request.user.pk
+                or es_administrador(request.user)
+            )
+        ),
+    }
+    return render(request, "ventas/cierre_turno.html", contexto)
 
 
 # Columnas del catálogo que se pueden ordenar desde el encabezado. El nombre

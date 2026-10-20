@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% load formatos %}
+{% block titulo %}Ficha de {{ cliente.nombre_completo }}{% endblock %}
+{% block contenido %}
+<div class="admin-panel">
+    <div class="admin-header">
+        <div class="admin-header-left">
+            <a href="{% url 'clientes:listar_clientes' %}" class="btn-back">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <h1><i class="bi bi-person-heart"></i> {{ cliente.nombre_completo }}</h1>
+            <p class="admin-subtitle">
+                DNI {{ cliente.dni }} ·
+                {% if cliente.activo %}
+                <span class="status-badge status-active"><i class="bi bi-check-circle-fill"></i> Activo</span>
+                {% else %}
+                <span class="status-badge status-inactive"><i class="bi bi-x-circle-fill"></i> Inactivo</span>
+                {% endif %}
+            </p>
+        </div>
+        <a href="{% url 'clientes:editar_cliente' cliente.pk %}" class="btn btn-admin-primary">
+            <i class="bi bi-pencil"></i> Editar
+        </a>
+    </div>
+
+    <!-- Resumen de fidelidad -->
+    <div class="stats-grid">
+        <div class="stat-card stat-admin">
+            <div class="stat-icon"><i class="bi bi-star-fill"></i></div>
+            <div class="stat-content">
+                <h3>{{ cliente.puntos }}</h3>
+                <p>Puntos de fidelidad</p>
+            </div>
+        </div>
+        <div class="stat-card stat-total">
+            <div class="stat-icon"><i class="bi bi-bag-check"></i></div>
+            <div class="stat-content">
+                <h3>{{ total_compras }}</h3>
+                <p>Compras realizadas</p>
+            </div>
+        </div>
+        <div class="stat-card stat-active">
+            <div class="stat-icon"><i class="bi bi-cash-stack"></i></div>
+            <div class="stat-content">
+                <h3>${{ total_gastado|montos }}</h3>
+                <p>Total gastado</p>
+            </div>
+        </div>
+        <div class="stat-card stat-cashier">
+            <div class="stat-icon"><i class="bi bi-calendar-check"></i></div>
+            <div class="stat-content">
+                <h3>{{ cliente.fecha_registro|date:"d/m/Y" }}</h3>
+                <p>Fecha de registro</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cuenta corriente (HU-14) -->
+    <div class="admin-card cuenta-corriente-card">
+        <div class="card-header">
+            <h2><i class="bi bi-journal-text"></i> Cuenta corriente (FIAR)</h2>
+        </div>
+        <div class="card-body">
+            <div class="stats-grid">
+                <div class="stat-card {% if cliente.saldo_deuda > 0 %}stat-alert{% else %}stat-active{% endif %}">
+                    <div class="stat-icon"><i class="bi bi-cash-coin"></i></div>
+                    <div class="stat-content">
+                        <h3>${{ cliente.saldo_deuda|montos }}</h3>
+                        <p>Saldo de deuda</p>
+                    </div>
+                </div>
+                <div class="stat-card stat-admin">
+                    <div class="stat-icon"><i class="bi bi-shield-check"></i></div>
+                    <div class="stat-content">
+                        <h3>${{ cliente.limite_credito|montos }}</h3>
+                        <p>Límite de crédito</p>
+                    </div>
+                </div>
+                <div class="stat-card stat-cashier">
+                    <div class="stat-icon"><i class="bi bi-wallet2"></i></div>
+                    <div class="stat-content">
+                        <h3>${{ cliente.credito_disponible|montos }}</h3>
+                        <p>Crédito disponible</p>
+                    </div>
+                </div>
+            </div>
+
+            {% if cliente.tiene_cuenta_corriente %}
+                {% if cliente.saldo_deuda > 0 %}
+                <form method="post"
+                      action="{% url 'clientes:registrar_pago' cliente.pk %}"
+                      class="pago-form">
+                    {% csrf_token %}
+                    <div class="form-row form-row-2">
+                        <div class="form-group">
+                            <label for="{{ form_pago.monto.id_for_label }}">
+                                {{ form_pago.monto.label }}
+                            </label>
+                            {{ form_pago.monto }}
+                        </div>
+                        <div class="form-group">
+                            <label for="{{ form_pago.observacion.id_for_label }}">
+                                {{ form_pago.observacion.label }}
+                            </label>
+                            {{ form_pago.observacion }}
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-admin-primary">
+                        <i class="bi bi-cash-stack"></i> Registrar pago
+                    </button>
+                </form>
+                {% else %}
+                <div class="kiosco-alert kiosco-alert-success" role="status">
+                    <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+                    <span>Sin deuda pendiente. 🎉</span>
+                </div>
+                {% endif %}
+            {% else %}
+            <div class="kiosco-alert kiosco-alert-warning" role="status">
+                <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+                <span>
+                    Este cliente no tiene cuenta corriente habilitada.
+                    Editá su ficha para asignarle un límite de crédito.
+                </span>
+            </div>
+            {% endif %}
+
+            {% if pagos %}
+            <div class="admin-table-container mt-3">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Monto</th>
+                            <th>Cobrado por</th>
+                            <th>Observación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in pagos %}
+                        <tr>
+                            <td>{{ p.fecha|date:"d/m/Y H:i" }}</td>
+                            <td><strong>${{ p.monto|montos }}</strong></td>
+                            <td>{{ p.usuario|default:"—" }}</td>
+                            <td>{{ p.observacion|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="admin-card">
+        <div class="card-header">
+            <h2><i class="bi bi-telephone"></i> Datos de contacto</h2>
+        </div>
+        <div class="card-body">
+            <div class="user-info-box">
+                <div class="info-row">
+                    <span class="info-label">Email:</span>
+                    <span class="info-value">{{ cliente.email|default:"No especificado" }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Teléfono:</span>
+                    <span class="info-value">{{ cliente.telefono|default:"No especificado" }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Registrado:</span>
+                    <span class="info-value">{{ cliente.fecha_registro|date:"d/m/Y H:i" }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Regla de puntos:</span>
+                    <span class="info-value">1 punto cada ${{ puntos_regla|montos }} comprados</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-card">
+        <div class="card-header">
+            <h2><i class="bi bi-receipt"></i> Historial de compras</h2>
+        </div>
+        <div class="card-body">
+            {% if ventas %}
+            <div class="admin-table-container">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Venta</th>
+                            <th>Fecha</th>
+                            <th>Método</th>
+                            <th>Cajero</th>
+                            <th>Puntos</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for v in ventas %}
+                        <tr>
+                            <td>N° {{ v.pk }}</td>
+                            <td>{{ v.fecha|date:"d/m/Y H:i" }}</td>
+                            <td>{{ v.get_metodo_pago_display }}</td>
+                            <td>{{ v.usuario|default:"—" }}</td>
+                            <td>
+                                {% if v.puntos_ganados %}
+                                <span class="badge-stock"><i class="bi bi-star-fill"></i> +{{ v.puntos_ganados }}</span>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td><strong>${{ v.total|montos }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="admin-empty">
+                <div class="empty-icon"><i class="bi bi-bag-x"></i></div>
+                <h3>Sin compras registradas</h3>
+                <p>Asociá este cliente en la pantalla de cobro y sus compras van a aparecer acá.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

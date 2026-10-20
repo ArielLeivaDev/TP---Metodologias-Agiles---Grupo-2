@@ -2,11 +2,12 @@
 
 Trabajo práctico de Metodologías Ágiles. Sistema web de gestión para un kiosco de barrio.
 
-**Estado al 12-10-2026:** Sprint 1 completo · Sprint 2 completo (catálogo de
+**Estado al 19-10-2026:** Sprint 1 completo · Sprint 2 completo (catálogo de
 productos + gestión de usuarios) · Sprint 3 completo (caja y cobro) ·
-**Sprint 4 parcial** (reportes de ventas y stock entregados adelantado;
-faltan cierre de turno y clientes) · estilo neón cian único · 170 tests en
-verde.
+**Sprint 4 completo** (reportes de ventas y stock + fidelidad de clientes +
+cierre de turno) · **consignas de la cátedra completas** (HU-13: catálogo
+público + pedido por WhatsApp; HU-14: cuenta corriente "FIAR") ·
+estilo neón cian único · **299 tests** en verde.
 
 ---
 
@@ -14,12 +15,12 @@ verde.
 
 | Documento | Contenido |
 |---|---|
-| [docs/PRD.md](docs/PRD.md) | Documento de Requerimientos de Producto (v2.1): alcance, personas, requerimientos funcionales (RF-01…RF-51) y no funcionales, historias de usuario con criterios de aceptación, riesgos y métricas. |
-| [docs/ARD.md](docs/ARD.md) | Arquitectura y Requerimientos Técnicos (v2.1): stack, diagramas (flujo y modelo de datos), endpoints, autorización, auditoría, 12 mini-ADRs y calidad. |
+| [docs/PRD.md](docs/PRD.md) | Documento de Requerimientos de Producto (v2.5): alcance, personas, requerimientos funcionales (RF-01…RF-84) y no funcionales, historias de usuario con criterios de aceptación, riesgos y métricas. |
+| [docs/ARD.md](docs/ARD.md) | Arquitectura y Requerimientos Técnicos (v2.5): stack, diagramas (flujo y modelo de datos), endpoints, autorización, auditoría, 17 mini-ADRs y calidad. |
 
-Ambos documentos describen el estado del producto al **Sprint 3 cerrado +
-reportes entregados** (versión 05-10-2026) y son el entregable de
-documentación del trabajo práctico.
+Ambos documentos describen el estado del producto al **Sprint 4 completo +
+consignas de la cátedra (HU-13 y HU-14)** (versión 19-10-2026) y son el
+entregable de documentación del trabajo práctico.
 
 ---
 
@@ -30,10 +31,13 @@ documentación del trabajo práctico.
 | 1 | Login, roles y 403 server-side (HU-01…03) | ✅ Completo |
 | 2 | Catálogo de productos + gestión de usuarios (HU-04…06) | ✅ Completo |
 | 3 | Caja: carrito, edición del carrito y cobro con vuelto (HU-07…09) | ✅ Completo (cerrado 05-10) |
-| 4 | Reportes de ventas y stock, cierre de turno (HU-10) y clientes (HU-12) | 🟡 Reportes entregados adelantado; faltan HU-10 y HU-12 |
+| 4 | Reportes de ventas y stock (HU-11), fidelidad de clientes (HU-12) y cierre de turno (HU-10) | ✅ Completo (19-10) |
+| — | Consignas de la cátedra: integración externa (catálogo público + pedido por WhatsApp) y cuenta corriente ("FIAR") | ✅ Completo (19-10): HU-13 y HU-14 |
 
 El detalle de cada sprint está en los apartados **Alcance de Sprint 1-4**;
-el avance item por item, en [Backlog](#backlog).
+el avance item por item, en [Backlog](#backlog). Las dos consignas nuevas de
+la cátedra (catálogo online + pedido por WhatsApp y cuenta corriente) están
+en [Integración externa y cuenta corriente](#integración-externa-y-cuenta-corriente-pedido-de-la-cátedra).
 
 ---
 
@@ -120,9 +124,20 @@ que se están quedando sin stock, para saber qué tengo que salir a reponer.
 - **Producto**: nombre, descripción, precio de venta, **costo** (solo lo ve el
   administrador), stock, stock mínimo, código de barras (único), categoría
   (FK), activo.
-- **Venta**: fecha/hora, total, finalizada.
+- **Venta**: fecha/hora, total, finalizada, método de pago, cajero, monto
+  entregado, vuelto, **cliente** (opcional) y **puntos ganados**.
 - **DetalleVenta**: venta, producto, cantidad, precio unitario,
   **costo_unitario**, `subtotal()`, `costo_total()`, `ganancia()`.
+- **Cliente** (app `clientes`, Sprint 4): nombre, apellido, DNI/CUIT (único,
+  normalizado), teléfono, email, fecha de registro, **puntos**, **límite de
+  crédito** (`limite_credito`, 0 = sin cuenta corriente), **saldo de deuda**
+  (`saldo_deuda`) y activo.
+- **PagoCuentaCorriente** (HU-14): cliente, monto, fecha, usuario que lo cobró y
+  observación; es el historial de pagos de la deuda.
+- **Turno** (Sprint 4, cierre de caja): usuario a cargo, fecha de apertura,
+  fecha de cierre (vacía mientras está abierto), **total_efectivo**,
+  **total_tarjeta**, **deuda_otorgada** (lo fiado, que no entra a la caja) y
+  **cantidad_operaciones** (estos se congelan al cerrar).
 
 ---
 
@@ -181,9 +196,10 @@ ingresar el monto entregado y que el sistema calcule el vuelto exacto.
 > "Cuando termina el turno o el día, quiero apretar un botón y que me tire
 > el total de plata que entró en efectivo, en tarjeta y cuántas ventas hice."
 
-**Estado:** 🟡 parcial — los **reportes de ventas y stock se entregaron
-adelantado** (05-10) con `administracion/reportes.py`; **HU-10** (cierre de
-turno) y **HU-12** (clientes) siguen pendientes para el 05-11.
+**Estado:** ✅ **Completo (19-10).** Los **reportes de ventas y stock se
+entregaron adelantado** (05-10) con `administracion/reportes.py`, la
+**fidelidad de clientes** (HU-12) se sumó el 17-10 con la app `clientes/` y el
+**cierre de turno** (HU-10) se integró el 19-10 desde la rama `Cierre_caja`.
 
 ### Historias de usuario
 
@@ -192,6 +208,7 @@ Como cajero, quiero cerrar mi turno y que el sistema me muestre el total
 en efectivo, en tarjeta y la cantidad de operaciones realizadas, para poder
 contar la plata de la caja.
 - Criterio de aceptación: se registra qué usuario estaba a cargo del turno.
+- *Estado: ✅ Hecho (19-10).*
 
 **HU-11 — Reporte de productos más vendidos**
 Como administrador, quiero ver un reporte de los productos más vendidos,
@@ -206,6 +223,130 @@ para que el cajero pueda asociar una venta a un cliente cuando lo solicite
 (sin interrumpir el flujo del consumidor final).
 - Criterio de aceptación: el cajero busca por CUIT y trae los datos
   automáticamente; si es nuevo, lo carga en una ventanita rápida.
+- *Estado: ✅ Hecho (17-10).*
+
+### Cómo está implementado el módulo de clientes (HU-12)
+
+- **App propia `clientes/`** con el modelo `Cliente` (DNI/CUIT único y
+  normalizado: se aceptan puntos y guiones al cargarlo, se guardan sin ellos),
+  teléfono, email, fecha de registro, puntos y baja lógica (`activo`).
+- **Fidelidad de puntos**: 1 punto cada $100 de compra
+  (`clientes/services.py::PUNTOS_POR_PESO`). `Venta.puntos_ganados` guarda lo
+  que sumó cada venta, así que el historial no se recalcula si después cambia
+  la regla ni si se da de baja el cliente.
+- **CRUD solo para el administrador**
+  (`/clientes/`, `/clientes/crear/`, `editar/`, `eliminar/` y la ficha
+  `detalle/`): el cajero recibe 403, igual que en el catálogo.
+- **Asociación en el cobro** (`@login_required`): el cajero busca el cliente
+  por DNI y lo asocia al carrito, que vive en la sesión; la venta se ata al
+  cliente recién al confirmar (`Venta.cliente`, `SET_NULL`). Si el cliente es
+  nuevo, el alta rápida lo crea y lo asocia sin salir de la pantalla de cobro.
+- **Venta sin cliente**: el flujo del consumidor final no cambia; asociar un
+  cliente es siempre opcional.
+- **Auditoría**: el alta/edición/baja y la venta con cliente quedan registradas
+  con `registrar_accion()`.
+
+### Cómo está implementado el cierre de turno (HU-10)
+
+- **Modelo `Turno`** (`ventas/models.py`, migración `0006`): guarda el
+  `usuario` a cargo (FK `SET_NULL`), la `fecha_apertura`, la `fecha_cierre`
+  (vacía mientras el turno sigue abierto) y el **snapshot** del cierre
+  (`total_efectivo`, `total_tarjeta`, `deuda_otorgada`, `cantidad_operaciones`).
+- **Servicios** (`ventas/services.py`): `abrir_turno()` no permite dos turnos
+  activos de la misma persona; `turno_abierto()` busca el turno sin cerrar;
+  `totales_del_turno()` calcula en vivo mientras está abierto y devuelve el
+  snapshot congelado una vez cerrado; `cerrar_turno()` guarda los totales
+  dentro de una transacción con `select_for_update` para que el histórico no
+  cambie si después se registran más ventas.
+- **Qué cuenta**: solo ventas `finalizada=True` del usuario del turno, dentro
+  de su franja (desde la apertura hasta el cierre o hasta ahora). Se separan
+  **efectivo** y **tarjeta** (los métodos en `METODOS_EN_CAJA`); lo fiado a
+  **cuenta corriente** no entra a la caja: se muestra aparte como **"Deuda
+  otorgada (FIAR)"** y se congela en `Turno.deuda_otorgada` (HU-14).
+- **Pantalla** `/ventas/turno/cierre/` (`ventas/cierre_turno.html`): abrir
+  turno, ver los totales en vivo, cerrarlo y consultar el resumen del turno
+  (el recién cerrado con `?turno=<id>` o cualquier histórico). Accesible desde
+  el atajo "Cierre de turno" en la pantalla de cobro y desde el dashboard.
+- **Control de responsable**: cualquiera puede abrir su propio turno; ver o
+  cerrar el turno de otro devuelve 403 salvo para el Administrador.
+- **Auditoría**: el cierre queda registrado con `registrar_accion()`
+  ("Cierre de turno", con los totales formateados y la cantidad de
+  operaciones). 20 tests.
+
+---
+
+## Integración externa y cuenta corriente (pedido de la cátedra)
+
+Son las dos consignas nuevas de la cátedra. **Ambas están implementadas**
+(19-10): la **integración externa (HU-13)** y la **cuenta corriente (HU-14)**.
+
+### 1) Integración externa: catálogo online + pedido para retiro ("take away") — ✅ Hecho
+
+**Lo que se pedía:** una vista pública (sin login) donde los vecinos vean el
+stock y los precios actuales del kiosco, armen un pedido y lo envíen por
+WhatsApp al local, para que el cajero solo tenga que cobrarlo cuando el cliente
+llegue a retirarlo.
+
+**Cómo quedó implementado:**
+
+- **App `pedidos/`** con los modelos `Pedido` y `ItemPedido` (migración
+  `0001_initial`). El pedido **no es una `Venta`**: no descuenta stock ni entra
+  a la caja; se cobra en el POS cuando el cliente retira.
+- **Catálogo público en `/catalogo/`** (`pedidos:catalogo`), sin
+  `@login_required`, con filtro por categoría. La disponibilidad se muestra
+  como **"Disponible" / "Agotado"** (`Producto.stock > 0`), **nunca la
+  cantidad exacta** de stock.
+- **Carrito del pedido en sesión** (`session["pedido"]`, separado del carrito
+  del POS): agregar, quitar y confirmar con el nombre de quien pide.
+- **Mensaje y link a WhatsApp** armados en el servidor (`pedidos/config.py`):
+  el teléfono del local sale de `KIOSCO_WHATSAPP` (y el nombre, de
+  `KIOSCO_NOMBRE`) en el `.env`; si no está configurado, la pantalla avisa en
+  vez de abrir un chat a un número de prueba.
+- **Panel interno de pedidos** (`/catalogo/panel/`, solo Administrador):
+  listar, filtrar por estado, ver el detalle y marcar **entregado/cancelado**
+  (cambios auditados con `registrar_accion()`).
+- **32 tests** nuevos (catálogo sin login, que no exponga el stock exacto,
+  armado y confirmación del pedido, texto/URL de WhatsApp y permisos del panel).
+
+### 2) Módulo de Ventas / POS: cuenta corriente ("FIAR") para clientes frecuentes — ✅ Hecho
+
+**Lo que se pedía:** que los clientes registrados puedan acumular un saldo de
+deuda con un **límite máximo definido por el administrador**, y que al cobrar
+el cajero pueda elegir **"Cobrar a Cuenta Corriente"**.
+
+**Cómo quedó implementado:**
+
+- **Límite y saldo en el cliente** (`clientes/models.py`, migración `0002`):
+  `Cliente.limite_credito` (0 = sin cuenta corriente) y `Cliente.saldo_deuda`
+  (deuda vigente). El Administrador define el límite desde el alta y la edición
+  de clientes; se rechazan valores negativos.
+- **Historial de pagos** con el modelo `PagoCuentaCorriente` (monto, fecha,
+  usuario que cobró y observación): sobrevive a la baja lógica del cliente.
+- **Cobro fiado desde el POS**: nuevo método de pago `cuenta_corriente` en
+  `Venta.METODO_PAGO` (migración `ventas/0007`). La opción "Cobrar a Cuenta
+  Corriente" aparece **solo si el carrito tiene un cliente con cuenta
+  corriente**; sin cliente no hay a quién fiar.
+- **Validación del límite server-side**: al confirmar el cobro,
+  `clientes/services.py::validar_fiado` corre **dentro de la misma transacción**
+  de `confirmar_venta` (con `select_for_update`); si la deuda nueva supera el
+  límite, la venta se rechaza con un mensaje que dice cuánto debe, el límite y
+  cuánto le queda, y el carrito **no se vacía**. Si pasa, `sumar_deuda()` sube
+  el saldo con `F()` en la misma transacción.
+- **Pago de la deuda** (`/clientes/<id>/pagos/registrar/`): **solo el
+  Administrador** registra pagos (el cajero recibe 403). Un pago ≤ 0 o mayor a
+  la deuda se rechaza. La ficha del cliente muestra el estado de la cuenta
+  corriente (límite, deuda, crédito disponible, aviso de "al límite") y el
+  historial de pagos; el listado de clientes muestra la deuda o "al día · límite".
+- **Lo fiado no entra a la caja ni a los ingresos**: `METODOS_EN_CAJA =
+  ("efectivo", "tarjeta")` define qué suma a la caja; lo fiado se informa
+  aparte como **"Deuda otorgada (FIAR)"** en el cierre de turno (`Turno.deuda_otorgada`)
+  y en los reportes (`reportes.deuda_otorgada()`), con un aviso de que no es
+  plata que esté en la caja. Los KPIs de ingresos, la serie por día, el top de
+  productos y los más rentables la **excluyen**.
+- **43 tests nuevos** de cuenta corriente (límite, fiado, pagos y reportes).
+
+> El detalle de las decisiones de diseño está en **ADN-14** y **ADN-17** del
+> [ARD](docs/ARD.md).
 
 ---
 
@@ -246,12 +387,29 @@ para que el cajero pueda asociar una venta a un cliente cuando lo solicite
   `select_for_update` y descuento de stock con `F()`), de modo que nunca
   queda una venta parcial que contaminaría los reportes.
 
+- **El catálogo público registra un `Pedido`, no una `Venta`** (HU-13): la
+  vista pública es la única sin rol; el pedido vive en `session["pedido"]`
+  (separado del carrito del POS) y recién se persiste al confirmar. Como no es
+  una venta, no descuenta stock ni entra a la caja: el cobro real pasa en el
+  POS cuando el cliente retira. El link a WhatsApp se arma en el servidor
+  (`pedidos/config.py`) y lo abre el navegador (`wa.me`), sin API ni
+  credenciales.
+
+- **Cuenta corriente con el saldo guardado y validación transaccional**
+  (HU-14): el límite se define **por cliente** (`Cliente.limite_credito`) y la
+  deuda se **guarda** en `Cliente.saldo_deuda` (con `PagoCuentaCorriente` como
+  historial). La validación del límite y la suma de la deuda corren **dentro de
+  la transacción** de `confirmar_venta` con `select_for_update`, así que dos
+  cobros simultáneos no pueden pasarse del límite por una condición de carrera.
+  Lo fiado **no** entra a la caja ni a los ingresos: `METODOS_EN_CAJA` centraliza
+  qué suma, y la deuda se informa aparte como "Deuda otorgada (FIAR)".
+
 ### Frontend
 
 <a id="frontend"></a>
 
 - **Bootstrap 5.3.3 + Bootstrap Icons 1.11.3** vía CDN como framework de utilidades.
-- **CSS custom** (`static/css/styles.css`, ~3.300 líneas) con design tokens vía
+- **CSS custom** (`static/css/styles.css`, ~3.400 líneas) con design tokens vía
   CSS custom properties (`:root` + variantes). La paleta, tipografía, radios y
   sombras se definen una vez y se reutilizan en todas las páginas.
 - **Identidad "toldo de barrio"**: rotulación de kiosco argentino — contorno
@@ -335,15 +493,22 @@ Abrí `http://127.0.0.1:8001/` en el navegador.
 
 ### Archivo .env
 
-El proyecto usa `django-environ` para leer la configuración de base de datos
-desde un archivo `.env` en la raíz del proyecto (no hay `.env.example` en el
-repo: crealo a mano).
+El proyecto usa `django-environ` para leer la configuración desde un archivo
+`.env` en la raíz del proyecto. Hay una plantilla versionada, `.env.example`:
+copiala a `.env` y completá los datos.
 
 ```
 DATABASE_URL=postgresql://postgres:1234@localhost:5432/db_kiosco
+KIOSCO_NOMBRE=Kiosco de Barrio
+KIOSCO_WHATSAPP=5491155554444
 ```
 
 Formato: `postgresql://USUARIO:CONTRASEÑA@HOST:PUERTO/NOMBRE_DB`
+
+`KIOSCO_WHATSAPP` es el WhatsApp del local para los pedidos del catálogo público
+(HU-13): formato internacional y solo dígitos, sin `+` ni espacios. Si queda en
+el valor de ejemplo, la pantalla de pedido avisa que falta configurarlo en vez
+de abrir un chat a un número de prueba.
 
 > **Importante:** el archivo `.env` está en `.gitignore` y **nunca** se sube
 > al repositorio (contiene contraseñas). Si no se define `DATABASE_URL`, el
@@ -361,15 +526,20 @@ Formato: `postgresql://USUARIO:CONTRASEÑA@HOST:PUERTO/NOMBRE_DB`
 Con el entorno virtual activado:
 
 ```powershell
-python manage.py test
+python manage.py test --keepdb
 ```
 
-**170 tests** actualmente:
+> **Nota:** usamos `--keepdb` para reutilizar la base de test entre corridas
+> (es más rápido y evita el `DROP DATABASE` colgado por conexiones huérfanas de
+> corridas anteriores). Si necesitás recrearla desde cero, corré
+> `python manage.py test` sin el flag.
+
+**299 tests** actualmente:
 
 - **`usuarios/tests.py` (9)**: login correcto e incorrecto, acceso anónimo
   bloqueado, cajero bloqueado en administración, administrador con acceso
   total, y la redirección post-login según rol.
-- **`ventas/tests.py` (69)**: pantalla de cobro (login, cajero, admin,
+- **`ventas/tests.py` (89)**: pantalla de cobro (login, cajero, admin,
   template) + catálogo (acceso 403 para el cajero en las 4 vistas, alta con
   costo y código, código duplicado rechazado, precio 0 rechazado, categoría
   nueva, edición, baja lógica, búsqueda por nombre/código, respuesta HTMX con
@@ -379,22 +549,48 @@ python manage.py test
   código, duplicado suma cantidad, sumar/restar/quitar y total; cobro:
   efectivo con vuelto, pago exacto, tarjeta, stock insuficiente, auditoría de
   la venta; comprobante: formato de pesos y 403 para ventas ajenas; búsqueda
-  en tiempo real del escáner desde 3 caracteres).
+  en tiempo real del escáner desde 3 caracteres) + **Sprint 4** (cierre de
+  turno: apertura registra al responsable, no se abren dos turnos a la vez,
+  totales en vivo antes de cerrar, el cierre congela el snapshot, las ventas
+  de otro cajero/no finalizadas/anteriores a la apertura quedan afuera, el
+  resumen formatea los montos, 403 para el turno ajeno y auditoría del
+  cierre) + **HU-14** (lo fiado no entra a la caja, la pantalla muestra la
+  deuda otorgada y el cierre la congela en `Turno.deuda_otorgada`).
 - **`ventas/tests_cargar_demo.py` (9)**: el seed de datos de demo (catálogo
   completo con códigos únicos, ventas desde el 20/09/2026 sin fechas en el
   futuro, precios y costos congelados en el detalle, vuelto solo en efectivo,
   no duplica sin `--limpiar`, regenera idéntico con `--limpiar`, no pisa
   productos cargados a mano y el caso de totales no múltiplos de 100).
+- **`clientes/tests.py` (71)**: acceso (cajero no entra al CRUD, sí busca y
+  asocia en el cobro), alta/edición con DNI único y normalizado (puntos,
+  guiones y letras), baja lógica que conserva ventas y puntos, asociación al
+  carrito en la sesión, suma de puntos (1 cada $100) y su previsualización,
+  comprobante con cliente y puntos, alta rápida desde el cobro, listado con
+  estadísticas y ficha con historial + **HU-14** (propiedades de la cuenta
+  corriente, fiado dentro/fuera del límite, sin cliente y sin cuenta corriente,
+  el carrito no se vacía al rechazar, registro de pagos que baja el saldo,
+  rechazo de monto ≤ 0 o mayor a la deuda, 403 del cajero, ficha con cuenta
+  corriente e historial de pagos y validación del límite en el formulario).
 - **`administracion/tests.py` (24)**: dashboard (login, admin, 403 cajero,
   403 sin grupo, estadísticas, KPI de stock bajo contando productos activos y
   linkeando al reporte) y CRUD de usuarios (listar con búsqueda y
   filtro por rol, crear, editar, eliminar con protección de superusuarios,
   activar/desactivar, asignar/quitar roles).
-- **`administracion/tests_reportes.py` (59)**: resumen de ventas, serie
+- **`administracion/tests_reportes.py` (65)**: resumen de ventas, serie
   diaria, top 10, productos rentables, stock valorado, stock por categoría,
   margen bajo, propiedades de `Producto`/`DetalleVenta` y las vistas de
   reportes (incluye 403 para el cajero, badge `status-bajo` rojo y el ancla
-  `#stock-bajo`).
+  `#stock-bajo`) + **HU-14** (los ingresos, la serie, el top y la rentabilidad
+  excluyen lo fiado; `deuda_otorgada()` lo suma aparte y el listado de ventas
+  puede incluirlas).
+- **`pedidos/tests.py` (32)**: catálogo público (visible sin login, que **no**
+  exponga el stock exacto, marca de agotados y solo productos activos), armado
+  del pedido (agregar, duplicados, cantidad inválida, producto agotado, quitar,
+  baja lógica del producto), confirmación (crea `Pedido` + ítems con el precio
+  congelado, valida nombre e ítems, vaciar) y WhatsApp (texto y URL con el
+  número configurado, normalización del teléfono, el placeholder no cuenta como
+  configurado), más el panel interno (403 del cajero, listado/filtro/detalle del
+  admin, cambio de estado auditado y POST obligatorio).
 
 ## Estructura del proyecto
 
@@ -407,9 +603,10 @@ kiosco_sprint1/
 ├── README.md                         # Este archivo.
 ├── AGENTS.md                         # Instrucciones para agentes IA.
 ├── docs/
-│   ├── PRD.md                        # Requerimientos de producto (v2.1).
-│   └── ARD.md                        # Arquitectura y requerimientos técnicos.
-├── .env                              # DATABASE_URL (no se sube al repo).
+│   ├── PRD.md                        # Requerimientos de producto (v2.5).
+│   └── ARD.md                        # Arquitectura y requerimientos técnicos (v2.5).
+├── .env                              # DATABASE_URL + WhatsApp del local (no se sube al repo).
+├── .env.example                      # Plantilla de .env (sí se versiona).
 ├── .gitignore                        # __pycache__, venv/, db.sqlite3, .env…
 │
 ├── config/                           # Configuración del proyecto Django.
@@ -417,8 +614,8 @@ kiosco_sprint1/
 │   │                                 # SQLite), apps, LOGIN_URL, es-ar,
 │   │                                 # America/Argentina/Buenos_Aires.
 │   ├── urls.py                       # Raíz: admin/, / → post_login, includes
-│   │                                 # de usuarios/ventas/administracion,
-│   │                                 # handler404.
+│   │                                 # de catalogo/pedidos, usuarios/clientes/
+│   │                                 # ventas/administracion, handler404.
 │   ├── wsgi.py / asgi.py             # Puntos de entrada WSGI/ASGI.
 │
 ├── usuarios/                         # Autenticación y control de acceso.
@@ -441,28 +638,76 @@ kiosco_sprint1/
 │
 ├── ventas/                           # Productos y pantalla de cobro (POS).
 │   ├── models.py                     # Categoria, Producto, Venta (método de
-│   │                                 # pago, cajero, vuelto), DetalleVenta.
+│   │                                 # pago —incl. cuenta corriente—, cajero,
+│   │                                 # vuelto, cliente y puntos),
+│   │                                 # DetalleVenta y Turno (cierre de caja
+│   │                                 # con deuda otorgada).
 │   ├── services.py                   # Carrito en sesión + confirmar_venta
-│   │                                 # (transacción, stock, precios HU-09).
+│   │                                 # (transacción, stock, precios HU-09,
+│   │                                 # validación del fiado) y
+│   │                                 # apertura/cierre del turno (HU-10).
 │   ├── views.py                      # pantalla_cobro + cobro_agregar /
 │   │                                 # cobro_cantidad / cobro_confirmar (HTMX),
-│   │                                 # lista_productos (búsqueda + orden por
-│   │                                 # columna asc/desc) y CRUD de productos
-│   │                                 # (@rol_requerido Administrador).
+│   │                                 # cierre_turno, lista_productos (búsqueda +
+│   │                                 # orden por columna asc/desc) y CRUD de
+│   │                                 # productos (@rol_requerido Administrador).
 │   ├── forms.py                      # ProductoForm (HU-04): código de barras
 │   │                                 # sin duplicados, costo, precio, stock,
 │   │                                 # stock_minimo y categoría.
-│   ├── urls.py                       # 10 rutas: 5 de cobro/ y 5 de productos/.
+│   ├── urls.py                       # 10 rutas: 6 de cobro/ y turno/ + 4 de
+│   │                                 # productos/.
 │   ├── admin.py                      # Venta (inline DetalleVenta), Producto,
 │   │                                 # Categoria.
 │   ├── management/commands/
 │   │   └── cargar_demo.py            # 56 productos + ventas desde el 20/09/2026
 │   │                                 # (semilla fija; --limpiar regenera).
-│   ├── tests.py                      # 69 tests.
+│   ├── tests.py                      # 89 tests.
 │   ├── tests_cargar_demo.py          # 9 tests del seed de datos.
 │   └── migrations/                   # 0001 catálogo/ventas, 0002 costo,
 │                                     # 0003 código de barras + stock mínimo,
-│                                     # 0004 campos de cobro de la Venta.
+│                                     # 0004 campos de cobro de la Venta,
+│                                     # 0005 cliente + puntos de fidelidad,
+│                                     # 0006 Turno (cierre de turno),
+│                                     # 0007 deuda otorgada + método
+│                                     # cuenta_corriente (HU-14).
+│
+├── clientes/                         # Fidelidad (HU-12) y cuenta corriente
+│                                     # (HU-14), Sprint 4 + consigna.
+│   ├── models.py                     # Cliente: nombre, apellido, DNI/CUIT
+│   │                                 # (único), teléfono, email, fecha de
+│   │                                 # registro, puntos, limite_credito,
+│   │                                 # saldo_deuda y activo; PagoCuentaCorriente
+│   │                                 # (historial de pagos).
+│   ├── services.py                   # Regla de puntos (1 cada $100), cliente
+│   │                                 # asociado en la sesión, validar_fiado,
+│   │                                 # sumar_deuda y registrar_pago.
+│   ├── views.py                      # CRUD de clientes (403 para el cajero) +
+│   │                                 # buscar/asociar/quitar y alta rápida
+│   │                                 # desde el cobro + registrar_pago
+│   │                                 # (solo Administrador).
+│   ├── forms.py                      # ClienteForm (DNI normalizado y único,
+│   │                                 # limite_credito) y PagoCuentaCorrienteForm.
+│   ├── urls.py                       # 10 rutas: CRUD, cobro y pagos.
+│   ├── admin.py                      # Cliente y PagoCuentaCorriente.
+│   ├── tests.py                      # 71 tests.
+│   └── migrations/                   # 0001 Cliente, 0002 límite/saldo +
+│                                     # PagoCuentaCorriente (HU-14).
+│
+├── pedidos/                          # Integración externa (HU-13, consigna).
+│   ├── models.py                     # Pedido (estado, total congelado) e
+│   │                                 # ItemPedido (nombre y precio congelados).
+│   ├── services.py                   # Carrito del pedido en sesión
+│   │                                 # (session["pedido"]), crear_pedido y el
+│   │                                 # texto armado para WhatsApp.
+│   ├── config.py                     # KIOSCO_NOMBRE / KIOSCO_WHATSAPP desde
+│   │                                 # el .env + armado del link wa.me.
+│   ├── views.py                      # Catálogo público sin login (HTMX) +
+│   │                                 # panel de pedidos (solo Administrador).
+│   ├── urls.py                       # 7 rutas: 4 públicas (/catalogo/…) y 3
+│   │                                 # del panel (/catalogo/panel/…).
+│   ├── admin.py                      # Pedido (inline ItemPedido).
+│   ├── tests.py                      # 32 tests.
+│   └── migrations/0001_initial.py
 │
 ├── administracion/                   # Panel del dueño.
 │   ├── views.py                      # dashboard (stats de usuarios + KPI de
@@ -479,7 +724,7 @@ kiosco_sprint1/
 │   │                                 # contraseña opcional al editar) y
 │   │                                 # AsignarRolForm (checkboxes de grupos).
 │   ├── tests.py                      # 24 tests.
-│   ├── tests_reportes.py             # 59 tests.
+│   ├── tests_reportes.py             # 65 tests.
 │   └── templates → ../templates/administracion/ (8 templates).
 │
 ├── auditoria/                        # Logs de auditoría.
@@ -505,13 +750,34 @@ kiosco_sprint1/
 │   │   └── tags/                     # Partiales de paginación y buscador.
 │   ├── ventas/
 │   │   ├── pantalla_cobro.html       # POS: escáner, carrito, pago (HU-07…09).
-│   │   ├── _carrito.html             # Partial HTMX del carrito y form de pago.
+│   │   ├── _carrito.html             # Partial HTMX del carrito y form de pago
+│   │   │                             # (incluye la opción "FIAR" y la barra de
+│   │   │                             # cuenta corriente, HU-14).
 │   │   ├── _cobro_resultados.html    # Sugerencias del escáner (≥3 caracteres).
 │   │   ├── lista_productos.html      # Catálogo con búsqueda HTMX.
 │   │   ├── _productos_tabla.html     # Partial que devuelve HTMX.
 │   │   ├── agregar_producto.html     # Alta (HU-04).
 │   │   ├── editar_producto.html      # Edición de precios y stock.
+│   │   ├── cierre_turno.html         # Apertura, totales, deuda otorgada y
+│   │   │                             # resumen del turno (HU-10/HU-14).
 │   │   └── eliminar_producto.html    # Confirmación de baja lógica.
+│   ├── clientes/                     # Fidelidad (HU-12) y cuenta corriente
+│   │   │                             # (HU-14):
+│   │   ├── listar_clientes.html      # tabla con búsqueda y estadísticas.
+│   │   ├── _clientes_tabla.html      # Partial que devuelve HTMX (muestra la
+│   │   │                             # deuda o el límite de cada cliente).
+│   │   ├── crear_cliente.html / editar_cliente.html  # incluyen el límite.
+│   │   ├── eliminar_cliente.html     # Confirmación de baja lógica.
+│   │   ├── detalle_cliente.html      # ficha: puntos, historial, cuenta
+│   │   │                             # corriente e historial de pagos.
+│   │   └── _resultados_cobro.html    # búsqueda + alta rápida en el cobro.
+│   ├── pedidos/                      # Integración externa (HU-13):
+│   │   ├── catalogo.html             # vitrina pública sin login.
+│   │   ├── _carrito_pedido.html      # Partial HTMX del pedido en curso.
+│   │   ├── pedido_confirmado.html    # paso a WhatsApp con el pedido armado.
+│   │   ├── lista_pedidos.html        # panel de pedidos (solo Administrador).
+│   │   ├── _pedidos_tabla.html       # Partial que devuelve HTMX.
+│   │   └── detalle_pedido.html       # detalle + entregar/cancelar.
 │   └── administracion/               # Panel del equipo:
 │       ├── dashboard.html            # stats de usuarios + accesos rápidos.
 │       ├── listar_usuarios.html      # tabla con búsqueda/filtros.
@@ -522,7 +788,7 @@ kiosco_sprint1/
 │       └── reportes_stock.html        # inventario valorado y alertas.
 │
 ├── static/
-│   ├── css/styles.css                # ~3.200 líneas: tokens del toldo, estilo
+│   ├── css/styles.css                # ~3.600 líneas: tokens del toldo, estilo
 │   │                                 # neón (único) con dark variant,
 │   │                                 # componentes base, bloques auth/admin
 │   │                                 # del equipo con aliases de tokens,
@@ -577,7 +843,7 @@ kiosco_sprint1/
 
 ## Backlog
 
-Estado real al **05-10-2026** (unificado: tabla original + backlog nuevo).
+Estado real al **19-10-2026** (unificado: tabla original + backlog nuevo).
 
 ### Hecho
 
@@ -596,7 +862,7 @@ Estado real al **05-10-2026** (unificado: tabla original + backlog nuevo).
 | Búsqueda de productos en tiempo real con HTMX (HU-05) | 2 | `hx-get` en el buscador + partial `_productos_tabla.html` |
 | Alerta de stock bajo configurable (HU-06) | 2 | `Producto.stock_minimo` (default 5) + `stock_bajo` + `.badge-stock-bajo` |
 | Catálogo protegido para el administrador (el cajero: 403) | 2 | `@rol_requerido("Administrador")` en las 4 vistas de `ventas` |
-| CRUD de usuarios + búsqueda + filtro por roles + paginación | 2 | `administracion/views.py`, 22 tests |
+| CRUD de usuarios + búsqueda + filtro por roles + paginación | 2 | `administracion/views.py`, 24 tests |
 | Estilo neón cian único (se eliminaron cartelera/ticket) | 2 | `data-tema="neon"` forzado en `base.html` |
 | Carrito de cobro con lector de código de barras (HU-07/08) | 3 | `ventas/services.py` + `cobro_agregar`/`cobro_cantidad` con partial `_carrito.html` |
 | Búsqueda en tiempo real en el cobro (desde 3 letras) | 3 | `cobro_buscar` + `hx-get` con debounce 300 ms y partial `_cobro_resultados.html` |
@@ -609,13 +875,26 @@ Estado real al **05-10-2026** (unificado: tabla original + backlog nuevo).
 | Reporte top 10 de productos más vendidos (HU-11) | 4 | `administracion/reportes.py::top_productos` |
 | Consulta de ventas, stock, costos y reportes para el administrador | 4 | `/administracion/reportes/ventas/` y `/reportes/stock/` |
 | KPIs de negocio: ingresos, ganancia, margen, ticket promedio, stock valorizado | 4 | `reportes.py` (`resumen_ventas`, `resumen_stock`, `ventas_por_dia`) |
+| KPI de stock bajo clickeable en el dashboard | 4 | `.stat-alert` + ancla `#stock-bajo` → `/administracion/reportes/stock/` |
+| Ordenamiento del catálogo por columna (asc/desc) | 4 | `CAMPOS_ORDEN` + params `orden`/`direccion` en `lista_productos` |
+| Datos de demo reproducibles (56 productos + ventas desde 20/09/2026) | 4 | `cargar_demo` (semilla fija `20260920`, flags `--limpiar`/`--ventas-por-dia`) |
+| Formato de dinero unificado en la UI (`montos`) | 4 | `usuarios/templatetags/formatos.py` |
+| Fidelidad de clientes: modelo, CRUD, DNI único y baja lógica (HU-12) | 4 | app `clientes/`, 71 tests |
+| Puntos de fidelidad (1 cada $100) + historial por venta | 4 | `clientes/services.py`, `Venta.cliente`/`puntos_ganados` (migración `0005`) |
+| Asociación de cliente en el cobro (buscar por DNI + alta rápida) | 4 | `clientes:buscar`/`asociar`/`quitar`/`alta_rapida` + carrito en sesión |
+| Cierre de turno: totales por método, operaciones, responsable (HU-10) | 4 | `Turno` + `abrir/cerrar_turno` (migración `0006`) + `/ventas/turno/cierre/`, 20 tests |
+| Catálogo público sin login con pedido para retirar (HU-13) | Consigna | app `pedidos/`: `/catalogo/`, `Pedido`/`ItemPedido` (migración `0001`), 32 tests |
+| Pedido enviado por WhatsApp con teléfono configurable | Consigna | `pedidos/config.py` (`KIOSCO_WHATSAPP`/`KIOSCO_NOMBRE`) + link `wa.me` con el pedido armado |
+| Las compras del catálogo quedan registradas en el sistema | Consigna | `Pedido`/`ItemPedido` + panel `/catalogo/panel/` (entregado/cancelado, auditado) |
+| Cuenta corriente ("FIAR"): límite y saldo por cliente (HU-14) | Consigna | `Cliente.limite_credito`/`saldo_deuda` + `PagoCuentaCorriente` (migración `clientes/0002`) |
+| Cobro fiado desde el POS con validación del límite (HU-14) | Consigna | `Venta.metodo_pago=cuenta_corriente` (migración `ventas/0007`) + `validar_fiado`/`sumar_deuda` transaccional |
+| Pago de la deuda e historial, solo para el Administrador (HU-14) | Consigna | `clientes:registrar_pago` (`@rol_requerido("Administrador")`) + ficha con historial |
+| Lo fiado fuera de la caja y de los ingresos, como "deuda otorgada" (HU-14) | Consigna | `METODOS_EN_CAJA` + `Turno.deuda_otorgada` + `reportes.deuda_otorgada()` |
 
 ### Pendiente
 
 | Item | Sprint | Notas |
 |------|--------|-------|
-| Cierre de turno: totales por método, operaciones, responsable (HU-10) | 4 | Requiere modelo `Turno` (el FK de `Venta` a usuario y método de pago ya existen) |
-| Alta/búsqueda de clientes por CUIT/DNI (HU-12) | 4 | Requiere modelo `Cliente` y FK opcional en `Venta` |
 | Logo propio del kiosco | por definir | Solo `favicon.svg`; el navbar usa icono de Bootstrap + texto |
 | Comercio configurable (nombre y colores del local) | por definir | Identidad fija en neón; se parametrizaría vía settings/templates |
 | Cobro con Mercado Pago (MP) | por definir | Sin dependencia ni integración en `requirements.txt` |

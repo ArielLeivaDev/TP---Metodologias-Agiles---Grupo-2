@@ -45,7 +45,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Apps propias del kiosco
     'usuarios',
+    'clientes',
     'ventas',
+    'pedidos',
     'administracion',
     'auditoria',
 ]
@@ -105,6 +107,13 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+# Tests: hasher liviano para que los client.login() no cuesten ~1s cada uno
+# por PBKDF2. Solo aplica al correr `manage.py test`.
+import sys
+
+if 'test' in sys.argv:
+    PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 
 
 # Internationalization

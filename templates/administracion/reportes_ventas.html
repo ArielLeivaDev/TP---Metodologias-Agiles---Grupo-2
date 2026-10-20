@@ -81,6 +81,22 @@
                 <p>Unidades vendidas</p>
             </div>
         </div>
+        <div class="stat-card stat-alert">
+            <div class="stat-icon"><i class="bi bi-journal-text"></i></div>
+            <div class="stat-content">
+                <h3>${{ deuda_otorgada|montos }}</h3>
+                <p>Deuda otorgada (FIAR)</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="kiosco-alert kiosco-alert-warning" role="status">
+        <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+        <span>
+            Los ingresos de arriba cuentan solo lo cobrado (efectivo y
+            tarjeta). Las ventas fiadas a cuenta corriente no son plata que
+            entró: se muestran aparte como <strong>deuda otorgada</strong>.
+        </span>
     </div>
 
     <div class="admin-card">
