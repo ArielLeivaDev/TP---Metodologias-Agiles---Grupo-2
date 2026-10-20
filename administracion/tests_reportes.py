@@ -10,10 +10,12 @@ from administracion import reportes
 from ventas.models import Categoria, DetalleVenta, Producto, Venta
 
 
-def _crear_venta(usuario, productos, fecha=None, finalizada=True):
+def _crear_venta(
+    usuario, productos, fecha=None, finalizada=True, metodo_pago="efectivo"
+):
     """
     Arma una venta con sus detalles. `productos` es una lista de tuplas
-    (producto, cantidad).
+    (producto, cantidad). `metodo_pago` permite armar ventas fiadas (HU-14).
     """
     venta = Venta.objects.create(
         total=sum(
@@ -21,6 +23,7 @@ def _crear_venta(usuario, productos, fecha=None, finalizada=True):
             Decimal("0.00"),
         ),
         finalizada=finalizada,
+        metodo_pago=metodo_pago,
     )
     for producto, cantidad in productos:
         DetalleVenta.objects.create(
@@ -205,6 +208,71 @@ class ResumenVentasTests(BaseReportes):
         self.assertEqual(resumen["ingresos"], Decimal("999.00"))
         self.assertEqual(resumen["costo"], Decimal("0.00"))
         self.assertEqual(resumen["ganancia"], Decimal("999.00"))
+
+
+class DeudaOtorgadaTests(BaseReportes):
+    """HU-14: lo fiado a cuenta corriente no cuenta como ingreso."""
+
+    def setUp(self):
+        super().setUp()
+        self.hoy = timezone.localdate()
+        _, _, self.desde_dt, self.hasta_dt = reportes.resolver_rango(
+            f"{self.hoy - timedelta(days=30)}", f"{self.hoy}"
+        )
+
+    def test_ingresos_excluyen_lo_fiado(self):
+        _crear_venta(self.admin, [(self.gaseosa, 2)])  # $200 cobrado
+        _crear_venta(
+            self.admin,
+            [(self.gaseosa, 3)],
+            metodo_pago="cuenta_corriente",  # $300 fiado
+        )
+        resumen = reportes.resumen_ventas(self.desde_dt, self.hasta_dt)
+        self.assertEqual(resumen["ingresos"], Decimal("200.00"))
+        self.assertEqual(resumen["cantidad_ventas"], 1)
+
+    def test_deuda_otorgada_suma_solo_lo_fiado(self):
+        _crear_venta(self.admin, [(self.gaseosa, 2)])
+        _crear_venta(
+            self.admin, [(self.gaseosa, 3)], metodo_pago="cuenta_corriente"
+        )
+        fiado = reportes.deuda_otorgada(self.desde_dt, self.hasta_dt)
+        self.assertEqual(fiado, Decimal("300.00"))
+
+    def test_deuda_otorgada_sin_ventas_fiadas_es_cero(self):
+        _crear_venta(self.admin, [(self.gaseosa, 1)])
+        fiado = reportes.deuda_otorgada(self.desde_dt, self.hasta_dt)
+        self.assertEqual(fiado, Decimal("0.00"))
+
+    def test_ventas_por_dia_excluye_lo_fiado(self):
+        _crear_venta(self.admin, [(self.gaseosa, 1)])  # $100
+        _crear_venta(
+            self.admin, [(self.gaseosa, 5)], metodo_pago="cuenta_corriente"
+        )
+        serie = reportes.ventas_por_dia(self.desde_dt, self.hasta_dt)
+        self.assertEqual(serie[-1]["ingresos"], Decimal("100.00"))
+
+    def test_top_productos_excluye_lo_fiado(self):
+        _crear_venta(self.admin, [(self.gaseosa, 1)])
+        _crear_venta(
+            self.admin, [(self.gaseosa, 9)], metodo_pago="cuenta_corriente"
+        )
+        top = reportes.top_productos(self.desde_dt, self.hasta_dt)
+        gaseosa = next(f for f in top if f["producto__id"] == self.gaseosa.pk)
+        self.assertEqual(gaseosa["unidades"], 1)
+
+    def test_ventas_del_rango_puede_incluir_fiado(self):
+        _crear_venta(
+            self.admin, [(self.gaseosa, 1)], metodo_pago="cuenta_corriente"
+        )
+        cobradas = reportes.ventas_del_rango(
+            self.desde_dt, self.hasta_dt, incluir_fiado=False
+        )
+        todas = reportes.ventas_del_rango(
+            self.desde_dt, self.hasta_dt, incluir_fiado=True
+        )
+        self.assertEqual(cobradas.count(), 0)
+        self.assertEqual(todas.count(), 1)
 
 
 class VentasPorDiaTests(BaseReportes):

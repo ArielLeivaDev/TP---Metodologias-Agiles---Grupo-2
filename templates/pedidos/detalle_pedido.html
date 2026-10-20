@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% load formatos %}
+{% block titulo %}Pedido #{{ pedido.pk }}{% endblock %}
+{% block contenido %}
+<div class="admin-panel">
+    <div class="admin-header">
+        <div class="admin-header-left">
+            <h1><i class="bi bi-bag-check"></i> Pedido #{{ pedido.pk }}</h1>
+            <p class="admin-subtitle">
+                Recibido el {{ pedido.fecha|date:"d/m/Y H:i" }} ·
+                <span class="badge-estado badge-estado-{{ pedido.estado }}">
+                    {{ pedido.get_estado_display }}
+                </span>
+            </p>
+        </div>
+        <div class="admin-header-acciones">
+            <a href="{% url 'pedidos:lista_pedidos' %}" class="btn-kiosco-outline btn-chico">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="pedido-detalle-grid">
+        <div class="admin-card">
+            <h2><i class="bi bi-list-ul"></i> Productos</h2>
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>P. unitario</th>
+                        <th>Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detalle in detalles %}
+                    <tr>
+                        <td>{{ detalle.nombre_producto }}</td>
+                        <td>{{ detalle.cantidad }}</td>
+                        <td>${{ detalle.precio_unitario|montos }}</td>
+                        <td>${{ detalle.subtotal|montos }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th colspan="3">Total</th>
+                        <th>${{ pedido.total|montos }}</th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="admin-card">
+            <h2><i class="bi bi-person-lines-fill"></i> Datos del cliente</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Nombre:</span>
+                    <span class="info-value">{{ pedido.nombre_cliente }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Teléfono:</span>
+                    <span class="info-value">{{ pedido.telefono|default:"—" }}</span>
+                </div>
+                {% if pedido.comentario %}
+                <div class="info-item">
+                    <span class="info-label">Comentario:</span>
+                    <span class="info-value">{{ pedido.comentario }}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if pedido.esta_pendiente %}
+            <div class="pedido-acciones-estado">
+                <form method="post"
+                      action="{% url 'pedidos:cambiar_estado' pedido.pk 'entregado' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-kiosco btn-ancho">
+                        <i class="bi bi-check-lg"></i> Marcar como entregado
+                    </button>
+                </form>
+                <form method="post"
+                      action="{% url 'pedidos:cambiar_estado' pedido.pk 'cancelado' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-kiosco-outline btn-ancho btn-peligro">
+                        <i class="bi bi-x-lg"></i> Cancelar pedido
+                    </button>
+                </form>
+            </div>
+            {% else %}
+            <p class="texto-suave">
+                Este pedido ya está {{ pedido.get_estado_display|lower }}.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

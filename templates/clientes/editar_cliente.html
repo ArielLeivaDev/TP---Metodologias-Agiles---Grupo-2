@@ -83,6 +83,20 @@
                 </div>
 
                 <div class="form-group">
+                    <label class="admin-label">
+                        <i class="bi bi-journal-text"></i> Límite de crédito (FIAR)
+                    </label>
+                    {{ form.limite_credito }}
+                    {% if form.limite_credito.errors %}
+                        <span class="field-error">{{ form.limite_credito.errors.0 }}</span>
+                    {% endif %}
+                    <span class="help-text">
+                        Máximo que se le puede fiar en cuenta corriente.
+                        Dejalo en 0 para no habilitarla.
+                    </span>
+                </div>
+
+                <div class="form-group">
                     <div class="checkbox-group">
                         {{ form.activo }}
                         <label class="admin-label checkbox-label">Cliente activo</label>

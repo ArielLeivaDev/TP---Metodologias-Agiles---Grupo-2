@@ -9,6 +9,7 @@
             <th>Compras</th>
             <th>Total gastado</th>
             <th>Puntos</th>
+            <th>Cuenta corriente</th>
             <th>Estado</th>
             <th>Registrado</th>
             <th class="actions-col">Acciones</th>
@@ -38,6 +39,21 @@
                 <span class="badge-stock" title="1 punto cada ${{ puntos_regla|default:100 }}">
                     <i class="bi bi-star-fill"></i> {{ c.puntos }}
                 </span>
+            </td>
+            <td>
+                {% if c.tiene_cuenta_corriente %}
+                    {% if c.saldo_deuda > 0 %}
+                    <span class="badge-deuda" title="Límite: ${{ c.limite_credito|montos }}">
+                        <i class="bi bi-journal-text"></i> ${{ c.saldo_deuda|montos }}
+                    </span>
+                    {% else %}
+                    <span class="badge-disponible" title="Puede fiar hasta ${{ c.limite_credito|montos }}">
+                        <i class="bi bi-journal-check"></i> Al día · ${{ c.limite_credito|montos }}
+                    </span>
+                    {% endif %}
+                {% else %}
+                <span class="texto-tenue">—</span>
+                {% endif %}
             </td>
             <td>
                 {% if c.activo %}

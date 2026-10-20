@@ -16,7 +16,7 @@ from .services import ErrorCobro
 
 
 def contexto_cobro(request, error=None, form_rapido=None):
-    """Items, total, métodos de pago y cliente (HU-12) para la pantalla."""
+    """Items, total, métodos de pago y cliente (HU-12/HU-14) para la pantalla."""
     items = services.items_del_carrito(request)
     cliente = fidelidad.cliente_de_sesion(request)
     total = services.total_del_carrito(items)
@@ -29,6 +29,8 @@ def contexto_cobro(request, error=None, form_rapido=None):
         "puntos_regla": fidelidad.PUNTOS_POR_PESO,
         "form_rapido": form_rapido,
         "error": error,
+        # HU-14: para decidir si se puede ofrecer "cuenta corriente".
+        "puede_fiar": bool(cliente and cliente.puede_fiar(total)),
     }
 
 
@@ -197,6 +199,8 @@ def cierre_turno(request):
                 "Cierre de turno",
                 f"Efectivo {services.formatear_monto(turno.total_efectivo)} · "
                 f"Tarjeta {services.formatear_monto(turno.total_tarjeta)} · "
+                f"Fiado (cuenta corriente) "
+                f"{services.formatear_monto(turno.deuda_otorgada)} · "
                 f"{turno.cantidad_operaciones} operaciones",
                 request,
             )

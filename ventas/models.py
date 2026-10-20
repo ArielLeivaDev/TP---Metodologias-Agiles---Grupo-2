@@ -69,13 +69,14 @@ class Venta(models.Model):
      METODO_PAGO = [
          ("efectivo", "Efectivo"),
          ("tarjeta", "Tarjeta"),
+         ("cuenta_corriente", "Cuenta corriente (FIAR)"),
      ]
 
      fecha = models.DateTimeField(auto_now_add=True)
      total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
      finalizada = models.BooleanField(default=False)
      metodo_pago = models.CharField(
-         max_length=10,
+         max_length=20,
          choices=METODO_PAGO,
          default="efectivo",
          verbose_name="Método de pago",
@@ -167,6 +168,14 @@ class Turno(models.Model):
     )
     total_tarjeta = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal("0.00")
+    )
+    deuda_otorgada = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Deuda otorgada (cuenta corriente)",
+        help_text="HU-14: lo fiado en el turno. No es plata en la caja, "
+                  "por eso se informa aparte de efectivo y tarjeta.",
     )
     cantidad_operaciones = models.PositiveIntegerField(default=0)
 

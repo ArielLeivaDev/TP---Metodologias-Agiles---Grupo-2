@@ -81,12 +81,28 @@ def resolver_rango(desde=None, hasta=None):
     return f_desde, f_hasta, desde_dt, hasta_dt
 
 
-def ventas_del_rango(desde_dt, hasta_dt, solo_finalizadas=False):
-    """Queryset de ventas del período, ya filtrado."""
+def ventas_del_rango(desde_dt, hasta_dt, solo_finalizadas=False, incluir_fiado=True):
+    """Queryset de ventas del período, ya filtrado.
+
+    HU-14: las ventas a cuenta corriente no son plata que entró, así que
+    los reportes de ingresos las excluyen (`incluir_fiado=False`). Se
+    informan aparte como "deuda otorgada".
+    """
     ventas = Venta.objects.filter(fecha__gte=desde_dt, fecha__lte=hasta_dt)
     if solo_finalizadas:
         ventas = ventas.filter(finalizada=True)
+    if not incluir_fiado:
+        ventas = ventas.exclude(metodo_pago="cuenta_corriente")
     return ventas
+
+
+def deuda_otorgada(desde_dt, hasta_dt, solo_finalizadas=False):
+    """Total fiado a cuenta corriente en el período (HU-14)."""
+    return ventas_del_rango(
+        desde_dt, hasta_dt, solo_finalizadas, incluir_fiado=True
+    ).filter(metodo_pago="cuenta_corriente").aggregate(
+        total=Coalesce(Sum("total"), Decimal("0.00"))
+    )["total"]
 
 
 # ========== KPIs de cabecera ==========
@@ -100,8 +116,13 @@ def resumen_ventas(desde_dt, hasta_dt, solo_finalizadas=False):
     El costo sale de los detalles vía `Coalesce`: usa el costo congelado en
     la venta y, para las ventas hechas antes de que existiera ese campo,
     cae al costo actual del producto en vez de largar 0.
+
+    HU-14: los ingresos y los costos excluyen las ventas a cuenta corriente
+    (no es plata que entró a la caja). La deuda fiada se informa aparte.
     """
-    ventas = ventas_del_rango(desde_dt, hasta_dt, solo_finalizadas)
+    ventas = ventas_del_rango(
+        desde_dt, hasta_dt, solo_finalizadas, incluir_fiado=False
+    )
 
     agregados = ventas.aggregate(
         cantidad_ventas=Count("id"),
@@ -154,8 +175,13 @@ def ventas_por_dia(desde_dt, hasta_dt, solo_finalizadas=False):
 
     Trae también el costo y la ganancia del día, no solo el total, porque
     un día con muchas ventas puede ser el que más plata deja o el que menos.
+
+    HU-14: excluye lo fiado (no es plata que entró); la deuda otorgada del
+    período se muestra aparte con `deuda_otorgada()`.
     """
-    ventas = ventas_del_rango(desde_dt, hasta_dt, solo_finalizadas)
+    ventas = ventas_del_rango(
+        desde_dt, hasta_dt, solo_finalizadas, incluir_fiado=False
+    )
 
     ingresos = (
         ventas.annotate(dia=TruncDate("fecha"))
@@ -225,8 +251,10 @@ def ventas_por_dia(desde_dt, hasta_dt, solo_finalizadas=False):
 
 
 def top_productos(desde_dt, hasta_dt, limite=10, solo_finalizadas=False):
-    """Productos más vendidos por unidades, con su margen."""
-    ventas = ventas_del_rango(desde_dt, hasta_dt, solo_finalizadas)
+    """Productos más vendidos por unidades, con su margen (excluye fiado)."""
+    ventas = ventas_del_rango(
+        desde_dt, hasta_dt, solo_finalizadas, incluir_fiado=False
+    )
 
     return list(
         DetalleVenta.objects.filter(venta__in=ventas)
@@ -245,7 +273,9 @@ def top_productos(desde_dt, hasta_dt, limite=10, solo_finalizadas=False):
 
 def productos_mas_rentables(desde_dt, hasta_dt, limite=5, solo_finalizadas=False):
     """Productos ordenados por ganancia total, no por unidades vendidas."""
-    ventas = ventas_del_rango(desde_dt, hasta_dt, solo_finalizadas)
+    ventas = ventas_del_rango(
+        desde_dt, hasta_dt, solo_finalizadas, incluir_fiado=False
+    )
 
     filas = list(
         DetalleVenta.objects.filter(venta__in=ventas)

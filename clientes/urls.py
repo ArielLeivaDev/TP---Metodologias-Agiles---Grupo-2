@@ -23,6 +23,12 @@ urlpatterns = [
         views.detalle_cliente,
         name="detalle_cliente",
     ),
+    # Cuenta corriente (HU-14): cobro de un pago de la deuda
+    path(
+        "<int:cliente_id>/pagos/registrar/",
+        views.registrar_pago,
+        name="registrar_pago",
+    ),
     # Asociación a la venta desde la pantalla de cobro
     path("buscar/", views.buscar_cliente, name="buscar"),
     path("asociar/", views.asociar_cliente, name="asociar"),

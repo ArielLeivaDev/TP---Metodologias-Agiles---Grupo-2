@@ -518,3 +518,377 @@ class ReglaDePuntosTests(TestCase):
         self.assertEqual(puntos_por_monto(Decimal("99.99")), 0)
         self.assertEqual(puntos_por_monto(Decimal("0.00")), 0)
         self.assertEqual(puntos_por_monto(None), 0)
+
+
+class BaseCuentaCorriente(BaseClientes):
+    """Escenario base del HU-14: cliente con límite, cajero y admin."""
+
+    def setUp(self):
+        super().setUp()
+        self.cliente.limite_credito = Decimal("5000.00")
+        self.cliente.save(update_fields=["limite_credito"])
+
+    def fiar(self, cantidad=1, producto=None, cliente=None):
+        """Agrega `cantidad` al carrito, asocia el cliente y cobra fiado."""
+        codigo = (producto or self.producto).codigo_barras
+        for _ in range(cantidad):
+            self.client.post(
+                reverse("ventas:cobro_agregar"), {"codigo": codigo}
+            )
+        self.asociar(cliente=cliente or self.cliente)
+        return self.client.post(
+            reverse("ventas:cobro_confirmar"),
+            {"metodo_pago": "cuenta_corriente"},
+        )
+
+
+class PropiedadesCuentaCorrienteTests(BaseCuentaCorriente):
+    """El modelo: límite, disponible y cuándo se puede fiar."""
+
+    def test_tiene_cuenta_corriente_segun_limite(self):
+        self.assertTrue(self.cliente.tiene_cuenta_corriente)
+        self.cliente.limite_credito = Decimal("0.00")
+        self.assertFalse(self.cliente.tiene_cuenta_corriente)
+
+    def test_credito_disponible_descuenta_la_deuda(self):
+        self.assertEqual(self.cliente.credito_disponible, Decimal("5000.00"))
+        self.cliente.saldo_deuda = Decimal("2000.00")
+        self.assertEqual(self.cliente.credito_disponible, Decimal("3000.00"))
+
+    def test_credito_disponible_nunca_es_negativo(self):
+        self.cliente.saldo_deuda = Decimal("9999.00")
+        self.assertEqual(self.cliente.credito_disponible, Decimal("0.00"))
+        self.assertTrue(self.cliente.saldo_al_limite)
+
+    def test_puede_fiar_dentro_del_limite(self):
+        self.assertTrue(self.cliente.puede_fiar(Decimal("5000.00")))
+        self.assertFalse(self.cliente.puede_fiar(Decimal("5000.01")))
+
+    def test_sin_limite_no_puede_fiar(self):
+        self.cliente.limite_credito = Decimal("0.00")
+        self.assertFalse(self.cliente.puede_fiar(Decimal("1.00")))
+
+
+class FiarEnElCobroTests(BaseCuentaCorriente):
+    """HU-14: cobrar a cuenta corriente desde el POS."""
+
+    def test_cajero_fia_dentro_del_limite(self):
+        self.login_cajero()
+        respuesta = self.fiar(cantidad=2)
+        self.assertEqual(respuesta.status_code, 302)
+
+        venta = Venta.objects.latest("pk")
+        self.assertEqual(venta.metodo_pago, "cuenta_corriente")
+        self.assertEqual(venta.total, Decimal("3000.00"))
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.saldo_deuda, Decimal("3000.00"))
+
+    def test_fiado_queda_auditado_como_venta(self):
+        self.login_cajero()
+        self.fiar()
+        self.assertTrue(
+            RegistroAuditoria.objects.filter(accion="Venta confirmada").exists()
+        )
+
+    def test_fiado_descuenta_stock(self):
+        self.login_cajero()
+        self.fiar(cantidad=3)
+        self.producto.refresh_from_db()
+        self.assertEqual(self.producto.stock, 7)
+
+    def test_fiado_suma_puntos_de_fidelidad(self):
+        self.login_cajero()
+        self.fiar()
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.puntos, 15)  # $1500 → 15 puntos
+
+    def test_rechaza_si_se_pasa_del_limite(self):
+        self.login_cajero()
+        # 4 x $1500 = $6000 > límite de $5000
+        respuesta = self.fiar(cantidad=4)
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "límite")
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.saldo_deuda, Decimal("0.00"))
+        self.assertFalse(
+            Venta.objects.filter(metodo_pago="cuenta_corriente").exists()
+        )
+
+    def test_rechazo_no_vacia_el_carrito(self):
+        self.login_cajero()
+        self.fiar(cantidad=4)
+        self.assertEqual(len(self.client.session.get("carrito", [])), 1)
+
+    def test_no_deja_fiar_sin_cliente_asociado(self):
+        self.login_cajero()
+        self.agregar_producto()
+        respuesta = self.confirmar(metodo="cuenta_corriente")
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "asociá un cliente")
+        self.assertFalse(
+            Venta.objects.filter(metodo_pago="cuenta_corriente").exists()
+        )
+
+    def test_no_deja_fiar_sin_cuenta_corriente_habilitada(self):
+        sin_cc = Cliente.objects.create(
+            nombre="Raúl", apellido="Nuevo", dni="40999888"
+        )
+        self.login_cajero()
+        self.agregar_producto()
+        self.asociar(cliente=sin_cc)
+        respuesta = self.confirmar(metodo="cuenta_corriente")
+        self.assertContains(respuesta, "no tiene cuenta corriente")
+        sin_cc.refresh_from_db()
+        self.assertEqual(sin_cc.saldo_deuda, Decimal("0.00"))
+
+    def test_una_venta_no_fiada_no_toca_el_saldo(self):
+        self.login_cajero()
+        self.agregar_producto()
+        self.asociar()
+        self.confirmar(metodo="efectivo", monto="2000")
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.saldo_deuda, Decimal("0.00"))
+
+    def test_efectivo_sigue_andando_con_limite_cargado(self):
+        self.login_cajero()
+        self.agregar_producto()
+        self.asociar()
+        respuesta = self.confirmar(metodo="efectivo", monto="2000")
+        self.assertEqual(respuesta.status_code, 302)
+        venta = Venta.objects.latest("pk")
+        self.assertEqual(venta.metodo_pago, "efectivo")
+        self.assertEqual(venta.vuelto, Decimal("500.00"))
+
+    def test_cuenta_corriente_no_ofrece_monto_entregado(self):
+        """La opción fiado sólo aparece si el cliente puede fiar."""
+        self.login_cajero()
+        self.agregar_producto()
+        self.asociar()
+        respuesta = self.client.post(
+            reverse("ventas:cobro_cantidad"),
+            {"producto_id": self.producto.pk, "accion": "sumar"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertContains(respuesta, "Cuenta corriente (FIAR)")
+        self.assertContains(respuesta, "puede fiar hasta")
+
+
+class RegistroPagoTests(BaseCuentaCorriente):
+    """HU-14: el Administrador cobra pagos de la deuda."""
+
+    def setUp(self):
+        super().setUp()
+        self.cliente.saldo_deuda = Decimal("3000.00")
+        self.cliente.save(update_fields=["saldo_deuda"])
+
+    def test_registrar_pago_baja_el_saldo(self):
+        self.login_admin()
+        respuesta = self.client.post(
+            reverse("clientes:registrar_pago", args=[self.cliente.pk]),
+            {"monto": "1000", "observacion": "primera parte"},
+        )
+        self.assertEqual(respuesta.status_code, 302)
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.saldo_deuda, Decimal("2000.00"))
+        self.assertEqual(self.cliente.pagos.count(), 1)
+
+    def test_pago_queda_auditado(self):
+        self.login_admin()
+        self.client.post(
+            reverse("clientes:registrar_pago", args=[self.cliente.pk]),
+            {"monto": "1000"},
+        )
+        self.assertTrue(
+            RegistroAuditoria.objects.filter(
+                accion="Pago de cuenta corriente"
+            ).exists()
+        )
+
+    def test_pago_parcial_deja_saldo(self):
+        self.login_admin()
+        self.client.post(
+            reverse("clientes:registrar_pago", args=[self.cliente.pk]),
+            {"monto": "2999.99"},
+        )
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.saldo_deuda, Decimal("0.01"))
+
+    def test_pago_total_deja_saldo_en_cero(self):
+        self.login_admin()
+        self.client.post(
+            reverse("clientes:registrar_pago", args=[self.cliente.pk]),
+            {"monto": "3000"},
+        )
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.saldo_deuda, Decimal("0.00"))
+
+    def test_rechaza_pago_mayor_a_la_deuda(self):
+        self.login_admin()
+        self.client.post(
+            reverse("clientes:registrar_pago", args=[self.cliente.pk]),
+            {"monto": "5000"},
+        )
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.saldo_deuda, Decimal("3000.00"))
+        self.assertEqual(self.cliente.pagos.count(), 0)
+
+    def test_rechaza_pago_cero_o_negativo(self):
+        self.login_admin()
+        for monto in ("0", "-100"):
+            self.client.post(
+                reverse("clientes:registrar_pago", args=[self.cliente.pk]),
+                {"monto": monto},
+            )
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.saldo_deuda, Decimal("3000.00"))
+
+    def test_cajero_no_puede_registrar_pagos(self):
+        self.login_cajero()
+        respuesta = self.client.post(
+            reverse("clientes:registrar_pago", args=[self.cliente.pk]),
+            {"monto": "1000"},
+        )
+        self.assertEqual(respuesta.status_code, 403)
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.saldo_deuda, Decimal("3000.00"))
+
+    def test_get_no_registra_nada(self):
+        self.login_admin()
+        respuesta = self.client.get(
+            reverse("clientes:registrar_pago", args=[self.cliente.pk])
+        )
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertEqual(self.cliente.pagos.count(), 0)
+
+    def test_pago_guarda_usuario_y_observacion(self):
+        self.login_admin()
+        self.client.post(
+            reverse("clientes:registrar_pago", args=[self.cliente.pk]),
+            {"monto": "500", "observacion": "pagó en dos partes"},
+        )
+        pago = self.cliente.pagos.first()
+        self.assertEqual(pago.monto, Decimal("500.00"))
+        self.assertEqual(pago.usuario.username, "admin_fidelidad")
+        self.assertEqual(pago.observacion, "pagó en dos partes")
+
+
+class FichaCuentaCorrienteTests(BaseCuentaCorriente):
+    """La ficha del cliente muestra el estado de la cuenta corriente."""
+
+    def test_ficha_muestra_saldo_y_limite(self):
+        self.cliente.saldo_deuda = Decimal("1200.00")
+        self.cliente.save(update_fields=["saldo_deuda"])
+        self.login_admin()
+        respuesta = self.client.get(
+            reverse("clientes:detalle_cliente", args=[self.cliente.pk])
+        )
+        self.assertContains(respuesta, "Cuenta corriente")
+        self.assertContains(respuesta, "1.200")
+        self.assertContains(respuesta, "5.000")
+        self.assertContains(respuesta, "Registrar pago")
+
+    def test_ficha_sin_deuda_no_muestra_form_de_pago(self):
+        self.login_admin()
+        respuesta = self.client.get(
+            reverse("clientes:detalle_cliente", args=[self.cliente.pk])
+        )
+        self.assertContains(respuesta, "Sin deuda pendiente")
+        self.assertNotContains(respuesta, "Registrar pago")
+
+    def test_ficha_avisa_si_no_tiene_cuenta_corriente(self):
+        sin_cc = Cliente.objects.create(
+            nombre="Raúl", apellido="Nuevo", dni="40999888"
+        )
+        self.login_admin()
+        respuesta = self.client.get(
+            reverse("clientes:detalle_cliente", args=[sin_cc.pk])
+        )
+        self.assertContains(respuesta, "no tiene cuenta corriente habilitada")
+
+    def test_ficha_lista_los_pagos(self):
+        self.cliente.saldo_deuda = Decimal("3000.00")
+        self.cliente.save(update_fields=["saldo_deuda"])
+        self.login_admin()
+        self.client.post(
+            reverse("clientes:registrar_pago", args=[self.cliente.pk]),
+            {"monto": "1000", "observacion": "parte uno"},
+        )
+        respuesta = self.client.get(
+            reverse("clientes:detalle_cliente", args=[self.cliente.pk])
+        )
+        self.assertContains(respuesta, "parte uno")
+
+    def test_listado_muestra_deuda(self):
+        self.cliente.saldo_deuda = Decimal("2500.00")
+        self.cliente.save(update_fields=["saldo_deuda"])
+        self.login_admin()
+        respuesta = self.client.get(reverse("clientes:listar_clientes"))
+        self.assertContains(respuesta, "2.500")
+
+
+class LimiteEnFormularioTests(BaseCuentaCorriente):
+    """El Administrador define el límite desde el alta/edición."""
+
+    def test_crear_cliente_con_limite(self):
+        self.login_admin()
+        self.client.post(
+            reverse("clientes:crear_cliente"),
+            {
+                "nombre": "Nuevo",
+                "apellido": "Fiado",
+                "dni": "40555666",
+                "limite_credito": "10000",
+            },
+        )
+        nuevo = Cliente.objects.get(dni="40555666")
+        self.assertEqual(nuevo.limite_credito, Decimal("10000.00"))
+
+    def test_editar_limite(self):
+        self.login_admin()
+        self.client.post(
+            reverse("clientes:editar_cliente", args=[self.cliente.pk]),
+            {
+                "nombre": self.cliente.nombre,
+                "apellido": self.cliente.apellido,
+                "dni": self.cliente.dni,
+                "limite_credito": "7500",
+                "activo": "on",
+            },
+        )
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.limite_credito, Decimal("7500.00"))
+
+    def test_rechaza_limite_negativo(self):
+        self.login_admin()
+        respuesta = self.client.post(
+            reverse("clientes:editar_cliente", args=[self.cliente.pk]),
+            {
+                "nombre": self.cliente.nombre,
+                "apellido": self.cliente.apellido,
+                "dni": self.cliente.dni,
+                "limite_credito": "-100",
+                "activo": "on",
+            },
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.limite_credito, Decimal("5000.00"))
+
+    def test_saldo_deuda_no_se_edita_desde_el_form(self):
+        """El saldo lo maneja el sistema; el form no lo expone."""
+        self.cliente.saldo_deuda = Decimal("800.00")
+        self.cliente.save(update_fields=["saldo_deuda"])
+        self.login_admin()
+        self.client.post(
+            reverse("clientes:editar_cliente", args=[self.cliente.pk]),
+            {
+                "nombre": "Ana",
+                "apellido": "Pérez",
+                "dni": self.cliente.dni,
+                "limite_credito": "5000",
+                "activo": "on",
+                "saldo_deuda": "0",
+            },
+        )
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.saldo_deuda, Decimal("800.00"))

@@ -41,6 +41,8 @@ def reportes_ventas(request):
     rentables = reportes.productos_mas_rentables(
         desde_dt, hasta_dt, solo_finalizadas=solo_finalizadas
     )
+    # HU-14: lo fiado va aparte de los ingresos (no es plata que entró).
+    fiado = reportes.deuda_otorgada(desde_dt, hasta_dt, solo_finalizadas)
 
     ventas = (
         reportes.ventas_del_rango(desde_dt, hasta_dt, solo_finalizadas)
@@ -81,6 +83,7 @@ def reportes_ventas(request):
         "max_ganancia": max_ganancia,
         "top": top,
         "rentables": rentables,
+        "deuda_otorgada": fiado,
         "ventas": ventas[:100],
         "hay_mas_ventas": ventas.count() > 100,
     }

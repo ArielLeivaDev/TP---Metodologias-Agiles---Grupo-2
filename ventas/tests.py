@@ -890,6 +890,39 @@ class CierreTurnoTests(TestCase):
         self.assertEqual(totales["total_tarjeta"], Decimal("1200.00"))
         self.assertEqual(totales["cantidad_operaciones"], 3)
 
+    def test_lo_fiado_no_entra_a_la_caja(self):
+        """HU-14: lo fiado no es plata que esté en la caja."""
+        self.login_cajero()
+        self.abrir()
+        self.venta("1500")
+        self.venta("800", metodo="cuenta_corriente")
+
+        respuesta = self.client.get(reverse("ventas:cierre_turno"))
+        totales = respuesta.context["totales"]
+        self.assertEqual(totales["total_efectivo"], Decimal("1500.00"))
+        self.assertEqual(totales["total_tarjeta"], Decimal("0.00"))
+        self.assertEqual(totales["total_general"], Decimal("1500.00"))
+        self.assertEqual(totales["deuda_otorgada"], Decimal("800.00"))
+
+    def test_pantalla_muestra_la_deuda_otorgada(self):
+        self.login_cajero()
+        self.abrir()
+        self.venta("800", metodo="cuenta_corriente")
+        respuesta = self.client.get(reverse("ventas:cierre_turno"))
+        self.assertContains(respuesta, "Deuda otorgada")
+
+    def test_cerrar_congela_la_deuda_otorgada(self):
+        """El snapshot del cierre también guarda lo fiado, aparte."""
+        self.login_cajero()
+        self.abrir()
+        self.venta("1500")
+        self.venta("800", metodo="cuenta_corriente")
+
+        self.cerrar()
+        turno = Turno.objects.get()
+        self.assertEqual(turno.total_efectivo, Decimal("1500.00"))
+        self.assertEqual(turno.deuda_otorgada, Decimal("800.00"))
+
     def test_cerrar_turno_congela_los_totales(self):
         """CA de HU-10: efectivo, tarjeta, operaciones y responsable."""
         self.login_cajero()

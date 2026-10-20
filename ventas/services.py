@@ -18,7 +18,10 @@ from clientes import services as fidelidad
 from .models import DetalleVenta, Producto, Turno, Venta
 
 CLAVE_CARRITO = "carrito"
-METODOS_PAGO_VALIDOS = {"efectivo", "tarjeta"}
+METODOS_PAGO_VALIDOS = {"efectivo", "tarjeta", "cuenta_corriente"}
+# HU-14: lo fiado no es plata que entra a la caja, así que no engrosa los
+# totales de un turno. Solo efectivo y tarjeta se cuentan en el cierre.
+METODOS_EN_CAJA = ("efectivo", "tarjeta")
 
 
 def formatear_monto(monto):
@@ -188,6 +191,8 @@ def confirmar_venta(request, metodo_pago, monto_entregado):
     crea Venta + DetalleVenta (precio y costo congelados), descuenta el stock
     y devuelve la Venta. Si había un cliente asociado (HU-12), lo vincula y
     le acumula los puntos de fidelidad de la compra.
+    HU-14: si el pago es a cuenta corriente, valida el límite del cliente y
+    le suma la deuda (todo dentro de la misma transacción).
     Limpia el carrito solo si todo salió bien.
     """
     items = items_del_carrito(request)
@@ -195,7 +200,10 @@ def confirmar_venta(request, metodo_pago, monto_entregado):
         raise ErrorCobro("El carrito está vacío.")
 
     if metodo_pago not in METODOS_PAGO_VALIDOS:
-        raise ErrorCobro("Elegí un método de pago válido (efectivo o tarjeta).")
+        raise ErrorCobro(
+            "Elegí un método de pago válido (efectivo, tarjeta o cuenta "
+            "corriente)."
+        )
 
     total = total_del_carrito(items)
     monto = _parsear_monto(monto_entregado)
@@ -220,6 +228,14 @@ def confirmar_venta(request, metodo_pago, monto_entregado):
         # simultáneos no acumen los puntos pisándose entre sí.
         cliente = fidelidad.cliente_para_venta(request)
         puntos_ganados = fidelidad.puntos_por_monto(total) if cliente else 0
+
+        # HU-14: a cuenta corriente solo se puede cobrar con cliente y
+        # dentro de su límite. Se valida con el cliente ya bloqueado.
+        if metodo_pago == "cuenta_corriente":
+            try:
+                fidelidad.validar_fiado(cliente, total)
+            except fidelidad.ErrorCuentaCorriente as exc:
+                raise ErrorCobro(str(exc))
 
         # Bloqueo los productos para que dos cajeros no vendan el mismo stock.
         productos_bloqueados = {
@@ -265,6 +281,11 @@ def confirmar_venta(request, metodo_pago, monto_entregado):
 
         if cliente is not None:
             fidelidad.sumar_puntos(cliente, puntos_ganados)
+            # HU-14: lo fiado engrosa la deuda del cliente en la misma
+            # transacción. Si algo falla después, la venta y la deuda se
+            # revierten juntas.
+            if metodo_pago == "cuenta_corriente":
+                fidelidad.sumar_deuda(cliente, total)
 
     vaciar_carrito(request)
     fidelidad.quitar_cliente_de_sesion(request)
@@ -312,18 +333,24 @@ def totales_del_turno(turno):
     Efectivo, tarjeta y cantidad de operaciones del turno.
     Con el turno cerrado devuelve el snapshot congelado en el cierre;
     mientras está abierto calcula en vivo para mostrar en pantalla.
+
+    HU-14: lo fiado a cuenta corriente **no** entra al efectivo ni a la
+    tarjeta (no es plata que hay en la caja). Se informa aparte como
+    "deuda otorgada" para que el cajero sepa cuánto se fió en el turno.
     """
     if not turno.activo:
         return {
             "total_efectivo": turno.total_efectivo,
             "total_tarjeta": turno.total_tarjeta,
             "total_general": turno.total_general,
+            "deuda_otorgada": turno.deuda_otorgada,
             "cantidad_operaciones": turno.cantidad_operaciones,
         }
 
     agregados = ventas_del_turno(turno).aggregate(
         efectivo=Sum("total", filter=Q(metodo_pago="efectivo")),
         tarjeta=Sum("total", filter=Q(metodo_pago="tarjeta")),
+        fiado=Sum("total", filter=Q(metodo_pago="cuenta_corriente")),
         operaciones=Count("pk"),
     )
     efectivo = agregados["efectivo"] or Decimal("0.00")
@@ -332,6 +359,7 @@ def totales_del_turno(turno):
         "total_efectivo": efectivo,
         "total_tarjeta": tarjeta,
         "total_general": efectivo + tarjeta,
+        "deuda_otorgada": agregados["fiado"] or Decimal("0.00"),
         "cantidad_operaciones": agregados["operaciones"],
     }
 
@@ -351,12 +379,14 @@ def cerrar_turno(turno):
         turno.fecha_cierre = timezone.now()
         turno.total_efectivo = totales["total_efectivo"]
         turno.total_tarjeta = totales["total_tarjeta"]
+        turno.deuda_otorgada = totales["deuda_otorgada"]
         turno.cantidad_operaciones = totales["cantidad_operaciones"]
         turno.save(
             update_fields=[
                 "fecha_cierre",
                 "total_efectivo",
                 "total_tarjeta",
+                "deuda_otorgada",
                 "cantidad_operaciones",
             ]
         )

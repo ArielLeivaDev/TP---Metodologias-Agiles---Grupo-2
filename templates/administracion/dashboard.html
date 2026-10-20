@@ -108,7 +108,7 @@
                     <i class="bi bi-person-heart"></i>
                 </div>
                 <h3>Clientes</h3>
-                <p>Fidelidad: registros, compras y puntos</p>
+                <p>Fidelidad: registros, compras, puntos y cuenta corriente (HU-14)</p>
             </a>
 
             <a href="{% url 'administracion:reportes_ventas' %}" class="action-card">
@@ -149,6 +149,14 @@
                 </div>
                 <h3>Cierre de Turno</h3>
                 <p>Totales de caja por efectivo y tarjeta (HU-10)</p>
+            </a>
+
+            <a href="{% url 'pedidos:lista_pedidos' %}" class="action-card">
+                <div class="action-icon">
+                    <i class="bi bi-bag-check"></i>
+                </div>
+                <h3>Pedidos Online</h3>
+                <p>Pedidos del catálogo público para retirar (HU-13)</p>
             </a>
 
             <a href="/admin/" class="action-card">

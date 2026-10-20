@@ -8,10 +8,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from auditoria.utils import registrar_accion
 from usuarios.decorators import rol_requerido
+from ventas.services import formatear_monto
 from ventas.views import contexto_cobro
 
 from . import services
-from .forms import ClienteForm, ClienteRapidoForm
+from .forms import ClienteForm, ClienteRapidoForm, PagoCuentaCorrienteForm
 from .models import Cliente
 
 
@@ -143,7 +144,7 @@ def eliminar_cliente(request, cliente_id):
 
 @rol_requerido("Administrador")
 def detalle_cliente(request, cliente_id):
-    """Ficha de fidelidad: fecha de registro, puntos, compras e historial."""
+    """Ficha de fidelidad: puntos, compras, cuenta corriente e historial."""
     cliente = get_object_or_404(Cliente, pk=cliente_id)
 
     ventas = (
@@ -161,14 +162,61 @@ def detalle_cliente(request, cliente_id):
         )["gasto"]
     )
 
+    cliente.refresh_from_db(fields=["saldo_deuda", "limite_credito"])
+
     contexto = {
         "cliente": cliente,
         "total_compras": ventas.count(),
         "total_gastado": total_gastado,
         "ventas": ventas[:100],
         "puntos_regla": services.PUNTOS_POR_PESO,
+        "pagos": cliente.pagos.all()[:100],
+        "form_pago": PagoCuentaCorrienteForm(cliente=cliente),
     }
     return render(request, "clientes/detalle_cliente.html", contexto)
+
+
+@rol_requerido("Administrador")
+def registrar_pago(request, cliente_id):
+    """HU-14: cobra un pago de la deuda del cliente y lo registra."""
+    cliente = get_object_or_404(Cliente, pk=cliente_id)
+
+    if request.method != "POST":
+        return redirect("clientes:detalle_cliente", cliente_id=cliente.pk)
+
+    form = PagoCuentaCorrienteForm(request.POST, cliente=cliente)
+    if form.is_valid():
+        try:
+            pago = services.registrar_pago(
+                cliente,
+                form.cleaned_data["monto"],
+                usuario=request.user,
+                observacion=form.cleaned_data.get("observacion", ""),
+            )
+        except services.ErrorCuentaCorriente as exc:
+            messages.error(request, str(exc))
+            return redirect("clientes:detalle_cliente", cliente_id=cliente.pk)
+
+        registrar_accion(
+            request.user,
+            "Pago de cuenta corriente",
+            f"Se cobró {formatear_monto(pago.monto)} a "
+            f"'{cliente.nombre_completo}' (DNI {cliente.dni}). "
+            f"Saldo restante: {formatear_monto(cliente.saldo_deuda)}",
+            request,
+        )
+        messages.success(
+            request,
+            f"Pago de {formatear_monto(pago.monto)} registrado. "
+            f"Saldo de {cliente.nombre_completo}: "
+            f"{formatear_monto(cliente.saldo_deuda)}.",
+        )
+        return redirect("clientes:detalle_cliente", cliente_id=cliente.pk)
+
+    for errores in form.errors.values():
+        for error in errores:
+            messages.error(request, error)
+    return redirect("clientes:detalle_cliente", cliente_id=cliente.pk)
 
 
 # ========== CLIENTE EN LA PANTALLA DE COBRO (HU-12: el cajero lo asocia) ==========

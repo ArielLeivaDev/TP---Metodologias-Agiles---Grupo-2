@@ -163,14 +163,45 @@
 
     <div class="cobro-metodos" role="radiogroup" aria-label="Método de pago">
         {% for valor, etiqueta in metodos_pago %}
+        {% if valor == 'cuenta_corriente' %}
+            {% if puede_fiar %}
+            <label class="cobro-metodo cobro-metodo-fiado">
+                <input type="radio" name="metodo_pago" value="cuenta_corriente">
+                <i class="bi bi-journal-text" aria-hidden="true"></i>
+                {{ etiqueta }}
+            </label>
+            {% endif %}
+        {% else %}
         <label class="cobro-metodo {% if forloop.first %}activo{% endif %}">
             <input type="radio" name="metodo_pago" value="{{ valor }}"
                    {% if forloop.first %}checked{% endif %}>
             <i class="bi {% if valor == 'efectivo' %}bi-cash{% else %}bi-credit-card{% endif %}" aria-hidden="true"></i>
             {{ etiqueta }}
         </label>
+        {% endif %}
         {% endfor %}
     </div>
+
+    {% if cliente %}
+    <div class="cuenta-corriente-barra
+                {% if puede_fiar %}cuenta-corriente-ok{% else %}cuenta-corriente-bloqueada{% endif %}"
+         role="status">
+        <i class="bi {% if puede_fiar %}bi-journal-check{% else %}bi-journal-x{% endif %}" aria-hidden="true"></i>
+        <span>
+            Cuenta corriente: debe <strong>${{ cliente.saldo_deuda|montos }}</strong>
+            de ${{ cliente.limite_credito|montos }} de límite
+            {% if puede_fiar %}
+            · puede fiar hasta ${{ cliente.credito_disponible|montos }}
+            {% else %}
+            {% if not cliente.tiene_cuenta_corriente %}
+            · no tiene cuenta corriente habilitada
+            {% else %}
+            · sin crédito disponible para este cobro
+            {% endif %}
+            {% endif %}
+        </span>
+    </div>
+    {% endif %}
 
     <div id="bloque-monto">
         <label class="cobro-label" for="monto">Monto entregado</label>

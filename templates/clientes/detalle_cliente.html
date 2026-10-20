@@ -55,6 +55,103 @@
         </div>
     </div>
 
+    <!-- Cuenta corriente (HU-14) -->
+    <div class="admin-card cuenta-corriente-card">
+        <div class="card-header">
+            <h2><i class="bi bi-journal-text"></i> Cuenta corriente (FIAR)</h2>
+        </div>
+        <div class="card-body">
+            <div class="stats-grid">
+                <div class="stat-card {% if cliente.saldo_deuda > 0 %}stat-alert{% else %}stat-active{% endif %}">
+                    <div class="stat-icon"><i class="bi bi-cash-coin"></i></div>
+                    <div class="stat-content">
+                        <h3>${{ cliente.saldo_deuda|montos }}</h3>
+                        <p>Saldo de deuda</p>
+                    </div>
+                </div>
+                <div class="stat-card stat-admin">
+                    <div class="stat-icon"><i class="bi bi-shield-check"></i></div>
+                    <div class="stat-content">
+                        <h3>${{ cliente.limite_credito|montos }}</h3>
+                        <p>Límite de crédito</p>
+                    </div>
+                </div>
+                <div class="stat-card stat-cashier">
+                    <div class="stat-icon"><i class="bi bi-wallet2"></i></div>
+                    <div class="stat-content">
+                        <h3>${{ cliente.credito_disponible|montos }}</h3>
+                        <p>Crédito disponible</p>
+                    </div>
+                </div>
+            </div>
+
+            {% if cliente.tiene_cuenta_corriente %}
+                {% if cliente.saldo_deuda > 0 %}
+                <form method="post"
+                      action="{% url 'clientes:registrar_pago' cliente.pk %}"
+                      class="pago-form">
+                    {% csrf_token %}
+                    <div class="form-row form-row-2">
+                        <div class="form-group">
+                            <label for="{{ form_pago.monto.id_for_label }}">
+                                {{ form_pago.monto.label }}
+                            </label>
+                            {{ form_pago.monto }}
+                        </div>
+                        <div class="form-group">
+                            <label for="{{ form_pago.observacion.id_for_label }}">
+                                {{ form_pago.observacion.label }}
+                            </label>
+                            {{ form_pago.observacion }}
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-admin-primary">
+                        <i class="bi bi-cash-stack"></i> Registrar pago
+                    </button>
+                </form>
+                {% else %}
+                <div class="kiosco-alert kiosco-alert-success" role="status">
+                    <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+                    <span>Sin deuda pendiente. 🎉</span>
+                </div>
+                {% endif %}
+            {% else %}
+            <div class="kiosco-alert kiosco-alert-warning" role="status">
+                <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+                <span>
+                    Este cliente no tiene cuenta corriente habilitada.
+                    Editá su ficha para asignarle un límite de crédito.
+                </span>
+            </div>
+            {% endif %}
+
+            {% if pagos %}
+            <div class="admin-table-container mt-3">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Monto</th>
+                            <th>Cobrado por</th>
+                            <th>Observación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in pagos %}
+                        <tr>
+                            <td>{{ p.fecha|date:"d/m/Y H:i" }}</td>
+                            <td><strong>${{ p.monto|montos }}</strong></td>
+                            <td>{{ p.usuario|default:"—" }}</td>
+                            <td>{{ p.observacion|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
     <div class="admin-card">
         <div class="card-header">
             <h2><i class="bi bi-telephone"></i> Datos de contacto</h2>

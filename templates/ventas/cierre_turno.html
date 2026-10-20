@@ -79,7 +79,28 @@
                 <p>Esperado en caja</p>
             </div>
         </div>
+
+        <div class="stat-card stat-warning">
+            <div class="stat-icon">
+                <i class="bi bi-journal-text"></i>
+            </div>
+            <div class="stat-content">
+                <h3>${{ totales.deuda_otorgada|montos }}</h3>
+                <p>Deuda otorgada (FIAR)</p>
+            </div>
+        </div>
     </div>
+
+    {% if totales.deuda_otorgada %}
+    <div class="kiosco-alert kiosco-alert-warning mt-3" role="status">
+        <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+        <span>
+            En este turno se fiaron ${{ totales.deuda_otorgada|montos }}:
+            no es plata que esté en la caja, así que el esperado en caja
+            solo cuenta efectivo y tarjeta.
+        </span>
+    </div>
+    {% endif %}
 
     {% if turno.activo %}
     {% if puede_cerrar %}
